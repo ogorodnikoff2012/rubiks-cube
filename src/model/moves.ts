@@ -7,6 +7,22 @@ import type { Block, CubeModel, FaceColors, FaceKey } from '../types/cube';
 
 export type MoveId = 'R' | "R'" | 'L' | "L'" | 'U' | "U'" | 'D' | "D'" | 'F' | "F'" | 'B' | "B'";
 
+/** Maps each move to its inverse (undoing move M applies INVERSE_MOVE[M]). */
+export const INVERSE_MOVE: Record<MoveId, MoveId> = {
+  R: "R'",
+  "R'": 'R',
+  L: "L'",
+  "L'": 'L',
+  U: "U'",
+  "U'": 'U',
+  D: "D'",
+  "D'": 'D',
+  F: "F'",
+  "F'": 'F',
+  B: "B'",
+  "B'": 'B',
+};
+
 /** Human-readable label pairs shown on the UI buttons. */
 export const MOVE_PAIRS: Array<[MoveId, MoveId]> = [
   ['R', "R'"],

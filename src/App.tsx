@@ -7,7 +7,13 @@ import { RotationAnimation } from './animation/RotationAnimation';
 import { easeInOutCubic } from './animation/easing';
 import CubeRenderer from './components/CubeRenderer';
 import { createSolvedCube } from './model/cube';
-import { MOVE_PAIRS, MOVE_SPECS, applyMoveToModel, getAffectedIndices } from './model/moves';
+import {
+  INVERSE_MOVE,
+  MOVE_PAIRS,
+  MOVE_SPECS,
+  applyMoveToModel,
+  getAffectedIndices,
+} from './model/moves';
 import type { CubeModel } from './types/cube';
 import type { MoveId } from './model/moves';
 
@@ -85,6 +91,16 @@ export default function App() {
   const [cube, setCube] = useState<CubeModel>(createSolvedCube);
   const [isAnimating, setIsAnimating] = useState(false);
 
+  // Move history for undo/redo.
+  // `moves` is the ordered list of executed moves; `historyIndex` is how many
+  // of them are currently applied.  Moves at index ≥ historyIndex are the
+  // redo stack.
+  const [moves, setMoves] = useState<MoveId[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+
+  const canUndo = historyIndex > 0 && !isAnimating;
+  const canRedo = historyIndex < moves.length && !isAnimating;
+
   const animService = useRef(new AnimationService());
   // Always-current reference to cube — avoids stale closures in callbacks.
   const cubeRef = useRef(cube);
@@ -113,7 +129,8 @@ export default function App() {
     );
   }, []);
 
-  const handleMove = useCallback((move: MoveId) => {
+  /** Run `move` animation and, on completion, record it in history. */
+  const executeMove = useCallback((move: MoveId, recordInHistory: (m: MoveId) => void) => {
     const { axis, angle } = MOVE_SPECS[move];
     const targetRotation = new THREE.Quaternion().setFromAxisAngle(axis, angle);
     const affectedIndices = getAffectedIndices(cubeRef.current.blocks, move);
@@ -126,13 +143,43 @@ export default function App() {
           targetRotation,
           setCube,
           (prev) => applyMoveToModel(prev, move),
-          () => setIsAnimating(false),
+          () => {
+            setIsAnimating(false);
+            recordInHistory(move);
+          },
         ),
         easeInOutCubic,
       ),
       MOVE_DURATION_MS,
     );
   }, []);
+
+  const handleMove = useCallback(
+    (move: MoveId) => {
+      executeMove(move, (m) => {
+        // Discard any redo-stack moves, then append.
+        setMoves((prev) => [...prev.slice(0, historyIndex), m]);
+        setHistoryIndex((i) => i + 1);
+      });
+    },
+    [executeMove, historyIndex],
+  );
+
+  const handleUndo = useCallback(() => {
+    if (historyIndex === 0) return;
+    const move = moves[historyIndex - 1];
+    executeMove(INVERSE_MOVE[move], () => {
+      setHistoryIndex((i) => i - 1);
+    });
+  }, [executeMove, moves, historyIndex]);
+
+  const handleRedo = useCallback(() => {
+    if (historyIndex >= moves.length) return;
+    const move = moves[historyIndex];
+    executeMove(move, () => {
+      setHistoryIndex((i) => i + 1);
+    });
+  }, [executeMove, moves, historyIndex]);
 
   // Stable ref so the keydown handler always sees the latest isAnimating
   // without being re-registered on every state change.
@@ -146,6 +193,25 @@ export default function App() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (isAnimatingRef.current) return;
 
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          handleUndo();
+          return;
+        }
+        if (e.key === 'z' && e.shiftKey) {
+          e.preventDefault();
+          handleRedo();
+          return;
+        }
+        if (e.key === 'y') {
+          e.preventDefault();
+          handleRedo();
+          return;
+        }
+        return; // don't intercept other Ctrl combos
+      }
+
       const move = HOTKEYS[e.key];
       if (move) {
         e.preventDefault();
@@ -154,7 +220,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleMove]);
+  }, [handleMove, handleUndo, handleRedo]);
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -163,6 +229,15 @@ export default function App() {
         <h1 style={{ fontSize: '1.1rem', fontWeight: 600, letterSpacing: '0.05em', flex: 1 }}>
           Rubik&rsquo;s Cube
         </h1>
+        <span style={{ fontSize: '0.8rem', color: '#8899aa', fontFamily: 'monospace' }}>
+          {historyIndex}/{moves.length}
+        </span>
+        <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>
+          ↩ Undo
+        </button>
+        <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>
+          Redo ↪
+        </button>
         <button onClick={handleReset} style={resetBtnStyle}>
           Reset rotation
         </button>
@@ -246,6 +321,17 @@ const moveBtnBase: React.CSSProperties = {
   borderRadius: 4,
   cursor: 'pointer',
   userSelect: 'none',
+};
+
+const iconBtnStyle: React.CSSProperties = {
+  padding: '6px 12px',
+  fontSize: '0.85rem',
+  fontWeight: 500,
+  background: 'transparent',
+  color: '#aac',
+  border: '1px solid #2a3a5a',
+  borderRadius: 4,
+  cursor: 'pointer',
 };
 
 const resetBtnStyle: React.CSSProperties = {
