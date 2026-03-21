@@ -18,7 +18,7 @@ import {
 import type { MoveId } from './model/moves';
 import type { CubeModel } from './types/cube';
 
-const MOVE_DURATION_MS = 3200;
+const MOVE_DURATION_MS = 320;
 const RESET_DURATION_MS = 700;
 const SCRAMBLE_MOVES = 50;
 
