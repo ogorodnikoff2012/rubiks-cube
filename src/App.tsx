@@ -14,8 +14,8 @@ import {
   applyMoveToModel,
   getAffectedIndices,
 } from './model/moves';
-import type { CubeModel } from './types/cube';
 import type { MoveId } from './model/moves';
+import type { CubeModel } from './types/cube';
 
 const MOVE_DURATION_MS = 320;
 const RESET_DURATION_MS = 700;
@@ -56,11 +56,10 @@ const FACE_COLOR: Record<string, string> = {
 interface MovePairProps {
   cw: MoveId;
   ccw: MoveId;
-  disabled: boolean;
   onMove: (id: MoveId) => void;
 }
 
-function MovePair({ cw, ccw, disabled, onMove }: MovePairProps) {
+function MovePair({ cw, ccw, onMove }: MovePairProps) {
   const face = cw.replace("'", '');
   const accent = FACE_COLOR[face] ?? '#888';
   return (
@@ -68,13 +67,8 @@ function MovePair({ cw, ccw, disabled, onMove }: MovePairProps) {
       {[cw, ccw].map((id) => (
         <button
           key={id}
-          disabled={disabled}
           onClick={() => onMove(id)}
-          style={{
-            ...moveBtnBase,
-            borderColor: accent,
-            color: accent,
-          }}
+          style={{ ...moveBtnBase, borderColor: accent, color: accent }}
         >
           {id}
         </button>
@@ -89,29 +83,139 @@ function MovePair({ cw, ccw, disabled, onMove }: MovePairProps) {
 
 export default function App() {
   const [cube, setCube] = useState<CubeModel>(createSolvedCube);
-  const [isAnimating, setIsAnimating] = useState(false);
 
-  // Move history for undo/redo.
-  // `moves` is the ordered list of executed moves; `historyIndex` is how many
-  // of them are currently applied.  Moves at index ≥ historyIndex are the
-  // redo stack.
+  // ── Animation state ──────────────────────────────────────────────────────
+  // isAnimating: a move animation is currently in flight.
+  // queueLength: moves waiting behind the current one.
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [queueLength, setQueueLength] = useState(0);
+  const isBusy = isAnimating || queueLength > 0;
+
+  // ── History ──────────────────────────────────────────────────────────────
   const [moves, setMoves] = useState<MoveId[]>([]);
   const [historyIndex, setHistoryIndex] = useState(0);
+  const canUndo = historyIndex > 0 && !isBusy;
+  const canRedo = historyIndex < moves.length && !isBusy;
 
-  const canUndo = historyIndex > 0 && !isAnimating;
-  const canRedo = historyIndex < moves.length && !isAnimating;
-
+  // ── Refs ─────────────────────────────────────────────────────────────────
   const animService = useRef(new AnimationService());
-  // Always-current reference to cube — avoids stale closures in callbacks.
   const cubeRef = useRef(cube);
   cubeRef.current = cube;
 
+  // Mutable queue — accessed synchronously inside animation callbacks.
+  const moveQueueRef = useRef<MoveId[]>([]);
+  // True while any move is in-flight or enqueued; prevents re-truncating the
+  // redo stack mid-batch and avoids spurious drain starts.
+  const isProcessingRef = useRef(false);
+  // Snapshot of historyIndex readable synchronously (state lags one render).
+  const historyIndexRef = useRef(historyIndex);
+  historyIndexRef.current = historyIndex;
+
+  // isBusy snapshot for keydown handler (avoids re-registering every render).
+  const isBusyRef = useRef(isBusy);
+  isBusyRef.current = isBusy;
+
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
   useEffect(() => {
     const service = animService.current;
     service.start();
     return () => service.stop();
   }, []);
 
+  // ── Core animation helper ─────────────────────────────────────────────────
+  /** Submit one move animation; call `onDone` when it fully commits. */
+  const runMoveAnimation = useCallback((move: MoveId, onDone: () => void) => {
+    const { axis, angle } = MOVE_SPECS[move];
+    const targetRotation = new THREE.Quaternion().setFromAxisAngle(axis, angle);
+    const affectedIndices = getAffectedIndices(cubeRef.current.blocks, move);
+
+    animService.current.submit(
+      new EasedAnimation(
+        new MoveAnimation(
+          affectedIndices,
+          targetRotation,
+          setCube,
+          (prev) => applyMoveToModel(prev, move),
+          onDone,
+        ),
+        easeInOutCubic,
+      ),
+      MOVE_DURATION_MS,
+    );
+  }, []);
+
+  // ── Queue drain ───────────────────────────────────────────────────────────
+  /**
+   * Pop the next move from the queue and animate it.
+   * `recordMove` is called after each move commits so the caller decides
+   * how to update history (forward move vs undo vs redo).
+   */
+  const drainQueue = useCallback(
+    (recordMove: (m: MoveId) => void) => {
+      if (moveQueueRef.current.length === 0) {
+        isProcessingRef.current = false;
+        setIsAnimating(false);
+        return;
+      }
+
+      const [move, ...rest] = moveQueueRef.current;
+      moveQueueRef.current = rest;
+      setQueueLength(rest.length);
+      setIsAnimating(true);
+
+      runMoveAnimation(move, () => {
+        recordMove(move);
+        drainQueue(recordMove);
+      });
+    },
+    [runMoveAnimation],
+  );
+
+  // ── Public move handlers ──────────────────────────────────────────────────
+  const handleMove = useCallback(
+    (move: MoveId) => {
+      moveQueueRef.current = [...moveQueueRef.current, move];
+      setQueueLength(moveQueueRef.current.length);
+
+      if (!isProcessingRef.current) {
+        isProcessingRef.current = true;
+        // Truncate redo stack once at the start of each new forward batch.
+        const idx = historyIndexRef.current;
+        setMoves((prev) => prev.slice(0, idx));
+        drainQueue((m) => {
+          setMoves((prev) => [...prev, m]);
+          setHistoryIndex((i) => i + 1);
+        });
+      }
+    },
+    [drainQueue],
+  );
+
+  const handleUndo = useCallback(() => {
+    if (historyIndex === 0 || isBusy) return;
+    const move = moves[historyIndex - 1];
+    isProcessingRef.current = true;
+    setIsAnimating(true);
+    runMoveAnimation(INVERSE_MOVE[move], () => {
+      setIsAnimating(false);
+      isProcessingRef.current = false;
+      setHistoryIndex((i) => i - 1);
+    });
+  }, [runMoveAnimation, moves, historyIndex, isBusy]);
+
+  const handleRedo = useCallback(() => {
+    if (historyIndex >= moves.length || isBusy) return;
+    const move = moves[historyIndex];
+    isProcessingRef.current = true;
+    setIsAnimating(true);
+    runMoveAnimation(move, () => {
+      setIsAnimating(false);
+      isProcessingRef.current = false;
+      setHistoryIndex((i) => i + 1);
+    });
+  }, [runMoveAnimation, moves, historyIndex, isBusy]);
+
+  // ── Camera rotation ───────────────────────────────────────────────────────
   const handleRotate = useCallback((q: THREE.Quaternion) => {
     setCube((prev) => ({ ...prev, rotation: q }));
   }, []);
@@ -129,71 +233,15 @@ export default function App() {
     );
   }, []);
 
-  /** Run `move` animation and, on completion, record it in history. */
-  const executeMove = useCallback((move: MoveId, recordInHistory: (m: MoveId) => void) => {
-    const { axis, angle } = MOVE_SPECS[move];
-    const targetRotation = new THREE.Quaternion().setFromAxisAngle(axis, angle);
-    const affectedIndices = getAffectedIndices(cubeRef.current.blocks, move);
-
-    setIsAnimating(true);
-    animService.current.submit(
-      new EasedAnimation(
-        new MoveAnimation(
-          affectedIndices,
-          targetRotation,
-          setCube,
-          (prev) => applyMoveToModel(prev, move),
-          () => {
-            setIsAnimating(false);
-            recordInHistory(move);
-          },
-        ),
-        easeInOutCubic,
-      ),
-      MOVE_DURATION_MS,
-    );
-  }, []);
-
-  const handleMove = useCallback(
-    (move: MoveId) => {
-      executeMove(move, (m) => {
-        // Discard any redo-stack moves, then append.
-        setMoves((prev) => [...prev.slice(0, historyIndex), m]);
-        setHistoryIndex((i) => i + 1);
-      });
-    },
-    [executeMove, historyIndex],
-  );
-
-  const handleUndo = useCallback(() => {
-    if (historyIndex === 0) return;
-    const move = moves[historyIndex - 1];
-    executeMove(INVERSE_MOVE[move], () => {
-      setHistoryIndex((i) => i - 1);
-    });
-  }, [executeMove, moves, historyIndex]);
-
-  const handleRedo = useCallback(() => {
-    if (historyIndex >= moves.length) return;
-    const move = moves[historyIndex];
-    executeMove(move, () => {
-      setHistoryIndex((i) => i + 1);
-    });
-  }, [executeMove, moves, historyIndex]);
-
-  // Stable ref so the keydown handler always sees the latest isAnimating
-  // without being re-registered on every state change.
-  const isAnimatingRef = useRef(isAnimating);
-  isAnimatingRef.current = isAnimating;
-
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      // Skip when an interactive element has focus (typing in inputs etc.).
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-      if (isAnimatingRef.current) return;
 
       if (e.ctrlKey || e.metaKey) {
+        // Undo / redo are blocked while busy.
+        if (isBusyRef.current) return;
         if (e.key === 'z' && !e.shiftKey) {
           e.preventDefault();
           handleUndo();
@@ -209,9 +257,10 @@ export default function App() {
           handleRedo();
           return;
         }
-        return; // don't intercept other Ctrl combos
+        return;
       }
 
+      // Move keys are always accepted — they get enqueued if busy.
       const move = HOTKEYS[e.key];
       if (move) {
         e.preventDefault();
@@ -222,15 +271,16 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [handleMove, handleUndo, handleRedo]);
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* ── Header ─────────────────────────────────────────────────────── */}
       <header style={headerStyle}>
         <h1 style={{ fontSize: '1.1rem', fontWeight: 600, letterSpacing: '0.05em', flex: 1 }}>
           Rubik&rsquo;s Cube
         </h1>
         <span style={{ fontSize: '0.8rem', color: '#8899aa', fontFamily: 'monospace' }}>
           {historyIndex}/{moves.length}
+          {queueLength > 0 && ` +${queueLength}`}
         </span>
         <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>
           ↩ Undo
@@ -243,33 +293,32 @@ export default function App() {
         </button>
       </header>
 
-      {/* ── Main grid: buttons surrounding the canvas ───────────────────── */}
       <main style={mainGridStyle}>
         {/* Row 1 */}
         <div />
-        <div style={topBottomSlot}>
-          <MovePair cw="U" ccw="U'" disabled={isAnimating} onMove={handleMove} />
+        <div style={centreSlot}>
+          <MovePair cw="U" ccw="U'" onMove={handleMove} />
         </div>
         <div />
 
         {/* Row 2 */}
-        <div style={sideSlot}>
-          <MovePair cw="L" ccw="L'" disabled={isAnimating} onMove={handleMove} />
+        <div style={centreSlot}>
+          <MovePair cw="L" ccw="L'" onMove={handleMove} />
         </div>
         <CubeRenderer model={cube} onRotate={handleRotate} />
-        <div style={sideSlot}>
-          <MovePair cw="R" ccw="R'" disabled={isAnimating} onMove={handleMove} />
+        <div style={centreSlot}>
+          <MovePair cw="R" ccw="R'" onMove={handleMove} />
         </div>
 
-        {/* Row 3 – D centre, F bottom-left, B bottom-right */}
-        <div style={topBottomSlot}>
-          <MovePair cw="F" ccw="F'" disabled={isAnimating} onMove={handleMove} />
+        {/* Row 3 – F bottom-left, D centre, B bottom-right */}
+        <div style={centreSlot}>
+          <MovePair cw="F" ccw="F'" onMove={handleMove} />
         </div>
-        <div style={topBottomSlot}>
-          <MovePair cw="D" ccw="D'" disabled={isAnimating} onMove={handleMove} />
+        <div style={centreSlot}>
+          <MovePair cw="D" ccw="D'" onMove={handleMove} />
         </div>
-        <div style={topBottomSlot}>
-          <MovePair cw="B" ccw="B'" disabled={isAnimating} onMove={handleMove} />
+        <div style={centreSlot}>
+          <MovePair cw="B" ccw="B'" onMove={handleMove} />
         </div>
       </main>
     </div>
@@ -298,13 +347,7 @@ const mainGridStyle: React.CSSProperties = {
   overflow: 'hidden',
 };
 
-const topBottomSlot: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-};
-
-const sideSlot: React.CSSProperties = {
+const centreSlot: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
