@@ -8,6 +8,7 @@ import { easeInOutCubic } from './animation/easing';
 import CubeRenderer from './components/CubeRenderer';
 import { createSolvedCube } from './model/cube';
 import {
+  ALL_MOVES,
   INVERSE_MOVE,
   MOVE_PAIRS,
   MOVE_SPECS,
@@ -19,6 +20,7 @@ import type { CubeModel } from './types/cube';
 
 const MOVE_DURATION_MS = 320;
 const RESET_DURATION_MS = 700;
+const SCRAMBLE_MOVES = 50;
 
 /**
  * Keyboard → MoveId mapping.
@@ -233,6 +235,12 @@ export default function App() {
     );
   }, []);
 
+  const handleScramble = useCallback(() => {
+    for (let i = 0; i < SCRAMBLE_MOVES; i++) {
+      handleMove(ALL_MOVES[Math.floor(Math.random() * ALL_MOVES.length)]);
+    }
+  }, [handleMove]);
+
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -293,6 +301,9 @@ export default function App() {
         </button>
         <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>
           Redo ↪
+        </button>
+        <button onClick={handleScramble} style={resetBtnStyle}>
+          Scramble
         </button>
         <button onClick={handleReset} style={resetBtnStyle}>
           Reset rotation

@@ -7,6 +7,22 @@ import type { Block, CubeModel, FaceColors, FaceKey } from '../types/cube';
 
 export type MoveId = 'R' | "R'" | 'L' | "L'" | 'U' | "U'" | 'D' | "D'" | 'F' | "F'" | 'B' | "B'";
 
+/** All valid move identifiers, useful for random-move generation. */
+export const ALL_MOVES: MoveId[] = [
+  'R',
+  "R'",
+  'L',
+  "L'",
+  'U',
+  "U'",
+  'D',
+  "D'",
+  'F',
+  "F'",
+  'B',
+  "B'",
+];
+
 /** Maps each move to its inverse (undoing move M applies INVERSE_MOVE[M]). */
 export const INVERSE_MOVE: Record<MoveId, MoveId> = {
   R: "R'",
