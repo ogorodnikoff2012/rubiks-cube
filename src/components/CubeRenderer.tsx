@@ -47,7 +47,17 @@ function buildCubeGroup(model: CubeModel): THREE.Group {
     const [gx, gy, gz] = block.position;
 
     const cubieGroup = new THREE.Group();
-    cubieGroup.position.set(gx * SPACING, gy * SPACING, gz * SPACING);
+
+    if (block.rotation) {
+      // Orbital rotation: apply the face-move quaternion to both position and
+      // orientation so the cubie sweeps around the cube centre correctly.
+      const worldPos = new THREE.Vector3(gx * SPACING, gy * SPACING, gz * SPACING);
+      worldPos.applyQuaternion(block.rotation);
+      cubieGroup.position.copy(worldPos);
+      cubieGroup.quaternion.copy(block.rotation);
+    } else {
+      cubieGroup.position.set(gx * SPACING, gy * SPACING, gz * SPACING);
+    }
 
     // Black cubie body
     cubieGroup.add(new THREE.Mesh(cubieGeom, blackMat));
@@ -78,11 +88,6 @@ function buildCubeGroup(model: CubeModel): THREE.Group {
       });
 
       cubieGroup.add(new THREE.Mesh(stickerGeom, stickerMat));
-    }
-
-    // Apply optional per-block rotation
-    if (block.rotation) {
-      cubieGroup.quaternion.copy(block.rotation);
     }
 
     group.add(cubieGroup);
