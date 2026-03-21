@@ -7,16 +7,14 @@ type CubeUpdater = (fn: (prev: CubeModel) => CubeModel) => void;
 /**
  * Drives a single face-rotation move.
  *
- * On each update, the affected block.rotation fields are set to the
- * interpolated quaternion.  The renderer treats a non-null block.rotation
- * as an orbital rotation: both the cubie's world position and its orientation
- * are transformed, so the cubie orbits the cube centre rather than spinning
- * in place.
+ * `committedModel` is the fully-resolved cube state that should be installed
+ * when the animation ends.  It must be computed *before* the animation is
+ * submitted (i.e. by the caller, not inside a React state updater), so that
+ * the next queued move can immediately read the correct block positions from
+ * it without waiting for React to flush the state update.
  *
- * On end, `finalize` is called as a functional state updater: it is expected
- * to commit the new block positions and face-color maps, and clear all
- * block.rotation fields.  `onComplete` is then called for any external
- * side-effects (e.g. clearing an "isAnimating" flag).
+ * `onComplete` receives `committedModel` so the caller can propagate it to
+ * wherever the next move will read its affected-block indices from.
  */
 export class MoveAnimation implements IAnimation {
   private readonly affected: Set<number>;
@@ -25,8 +23,8 @@ export class MoveAnimation implements IAnimation {
     affectedIndices: number[],
     private readonly targetRotation: THREE.Quaternion,
     private readonly setCube: CubeUpdater,
-    private readonly finalize: (prev: CubeModel) => CubeModel,
-    private readonly onComplete: () => void,
+    private readonly committedModel: CubeModel,
+    private readonly onComplete: (committed: CubeModel) => void,
   ) {
     this.affected = new Set(affectedIndices);
   }
@@ -34,7 +32,6 @@ export class MoveAnimation implements IAnimation {
   onBegin(): void {}
 
   onUpdate(p: number): void {
-    // Slerp from identity quaternion to targetRotation.
     const q = new THREE.Quaternion().slerp(this.targetRotation, p);
     this.setCube((prev) => ({
       ...prev,
@@ -45,7 +42,9 @@ export class MoveAnimation implements IAnimation {
   }
 
   onEnd(): void {
-    this.setCube(this.finalize);
-    this.onComplete();
+    // Install the precomputed committed model — no functional dependency on
+    // the React-managed prev, so the update is always consistent.
+    this.setCube(() => this.committedModel);
+    this.onComplete(this.committedModel);
   }
 }

@@ -18,7 +18,7 @@ import {
 import type { MoveId } from './model/moves';
 import type { CubeModel } from './types/cube';
 
-const MOVE_DURATION_MS = 320;
+const MOVE_DURATION_MS = 3200;
 const RESET_DURATION_MS = 700;
 const SCRAMBLE_MOVES = 50;
 
@@ -112,6 +112,14 @@ export default function App() {
   // Snapshot of historyIndex readable synchronously (state lags one render).
   const historyIndexRef = useRef(historyIndex);
   historyIndexRef.current = historyIndex;
+  // The fully-committed cube state, kept one step ahead of React's cube state.
+  // React's setCube is async; by the time drainQueue starts the next animation,
+  // cubeRef.current still holds the pre-commit state.  committedModelRef is
+  // updated synchronously in each move's onComplete, so getAffectedIndices
+  // always sees the correct block positions for the upcoming move.
+  const committedModelRef = useRef(cube);
+  // Only sync blocks/faceColors changes — rotation changes don't affect moves.
+  if (!isProcessingRef.current) committedModelRef.current = cube;
 
   // isBusy snapshot for keydown handler (avoids re-registering every render).
   const isBusyRef = useRef(isBusy);
@@ -125,26 +133,31 @@ export default function App() {
   }, []);
 
   // ── Core animation helper ─────────────────────────────────────────────────
-  /** Submit one move animation; call `onDone` when it fully commits. */
-  const runMoveAnimation = useCallback((move: MoveId, onDone: () => void) => {
-    const { axis, angle } = MOVE_SPECS[move];
-    const targetRotation = new THREE.Quaternion().setFromAxisAngle(axis, angle);
-    const affectedIndices = getAffectedIndices(cubeRef.current.blocks, move);
+  /**
+   * Submit one move animation.
+   * `currentModel` is the committed cube state to animate FROM (used to derive
+   * affected block indices and to compute the post-move model).
+   * `onDone` is called with the new committed model once the animation ends.
+   */
+  const runMoveAnimation = useCallback(
+    (move: MoveId, currentModel: CubeModel, onDone: (committed: CubeModel) => void) => {
+      const { axis, angle } = MOVE_SPECS[move];
+      const targetRotation = new THREE.Quaternion().setFromAxisAngle(axis, angle);
+      // Compute both the affected indices AND the final committed model eagerly,
+      // before the animation starts.  This avoids reading stale React state later.
+      const affectedIndices = getAffectedIndices(currentModel.blocks, move);
+      const committedModel = applyMoveToModel(currentModel, move);
 
-    animService.current.submit(
-      new EasedAnimation(
-        new MoveAnimation(
-          affectedIndices,
-          targetRotation,
-          setCube,
-          (prev) => applyMoveToModel(prev, move),
-          onDone,
+      animService.current.submit(
+        new EasedAnimation(
+          new MoveAnimation(affectedIndices, targetRotation, setCube, committedModel, onDone),
+          easeInOutCubic,
         ),
-        easeInOutCubic,
-      ),
-      MOVE_DURATION_MS,
-    );
-  }, []);
+        MOVE_DURATION_MS,
+      );
+    },
+    [],
+  );
 
   // ── Queue drain ───────────────────────────────────────────────────────────
   /**
@@ -165,7 +178,8 @@ export default function App() {
       setQueueLength(rest.length);
       setIsAnimating(true);
 
-      runMoveAnimation(move, () => {
+      runMoveAnimation(move, committedModelRef.current, (committed) => {
+        committedModelRef.current = committed;
         recordMove(move);
         drainQueue(recordMove);
       });
@@ -198,7 +212,8 @@ export default function App() {
     const move = moves[historyIndex - 1];
     isProcessingRef.current = true;
     setIsAnimating(true);
-    runMoveAnimation(INVERSE_MOVE[move], () => {
+    runMoveAnimation(INVERSE_MOVE[move], committedModelRef.current, (committed) => {
+      committedModelRef.current = committed;
       setIsAnimating(false);
       isProcessingRef.current = false;
       setHistoryIndex((i) => i - 1);
@@ -210,7 +225,8 @@ export default function App() {
     const move = moves[historyIndex];
     isProcessingRef.current = true;
     setIsAnimating(true);
-    runMoveAnimation(move, () => {
+    runMoveAnimation(move, committedModelRef.current, (committed) => {
+      committedModelRef.current = committed;
       setIsAnimating(false);
       isProcessingRef.current = false;
       setHistoryIndex((i) => i + 1);
