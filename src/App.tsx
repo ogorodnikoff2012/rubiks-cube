@@ -260,6 +260,12 @@ export default function App() {
         return;
       }
 
+      if (e.key === 'Escape') {
+        moveQueueRef.current = [];
+        setQueueLength(0);
+        return;
+      }
+
       // Move keys are always accepted — they get enqueued if busy.
       const move = HOTKEYS[e.key];
       if (move) {
