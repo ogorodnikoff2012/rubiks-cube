@@ -4,51 +4,58 @@ interface AnimationContext {
   readonly startTime: number;
   readonly endTime: number;
   readonly animation: IAnimation;
-  /** Whether onBegin() has been called for this context. */
-  begun: boolean;
 }
 
 /**
  * Drives a set of time-based animations via requestAnimationFrame.
  *
  * Lifecycle:
- *   start()  – begin the RAF loop (idempotent if already running)
- *   stop()   – cancel the loop; call onEnd() for every active animation that
- *              has already begun, then clear all contexts
- *   submit() – register an animation to run for `duration` milliseconds
+ *   start()  – begin the RAF loop; throws if already running
+ *   stop()   – cancel the loop; call onEnd() for every registered animation,
+ *              then clear all contexts; no-op if not running
+ *   submit() – register an animation to run for `duration` milliseconds;
+ *              calls onBegin() immediately; throws if the service is not running
  *
- * onBegin() is called on the first update frame for each animation so that
- * animations submitted but then discarded (via stop()) before they run
- * satisfy the IAnimation contract: if onBegin() was never called, neither
- * onUpdate() nor onEnd() need to be called.
+ * Guarantees per IAnimation contract: onBegin() is called in submit() and
+ * onEnd() is called either when the animation expires during a tick or when
+ * stop() is invoked, whichever comes first.
  */
 export class AnimationService {
   private readonly contexts = new Set<AnimationContext>();
   private rafHandle: number | null = null;
+  private running = false;
 
   start(): void {
-    if (this.rafHandle !== null) return;
+    if (this.running) {
+      throw new Error('AnimationService: already running — call stop() before start()');
+    }
+    this.running = true;
     this.rafHandle = requestAnimationFrame(this.tick);
   }
 
   stop(): void {
+    if (!this.running) return;
+    this.running = false;
     if (this.rafHandle !== null) {
       cancelAnimationFrame(this.rafHandle);
       this.rafHandle = null;
     }
     for (const ctx of this.contexts) {
-      if (ctx.begun) ctx.animation.onEnd();
+      ctx.animation.onEnd();
     }
     this.contexts.clear();
   }
 
   submit(animation: IAnimation, duration: number): void {
+    if (!this.running) {
+      throw new Error('AnimationService: cannot submit to a stopped service');
+    }
     const now = performance.now();
+    animation.onBegin();
     this.contexts.add({
       startTime: now,
       endTime: now + duration,
       animation,
-      begun: false,
     });
   }
 
@@ -56,15 +63,9 @@ export class AnimationService {
     const expired: AnimationContext[] = [];
 
     for (const ctx of this.contexts) {
-      if (!ctx.begun) {
-        ctx.animation.onBegin();
-        ctx.begun = true;
-      }
-
       const total = ctx.endTime - ctx.startTime;
       const p = Math.min(1, (timestamp - ctx.startTime) / total);
       ctx.animation.onUpdate(p);
-
       if (p >= 1) expired.push(ctx);
     }
 

@@ -15,6 +15,9 @@ export default function App() {
 
   // Stable ref — never recreated, survives re-renders.
   const animService = useRef(new AnimationService());
+  // Always reflects the latest cube state without being a closure dependency.
+  const cubeRef = useRef(cube);
+  cubeRef.current = cube;
 
   useEffect(() => {
     const service = animService.current;
@@ -26,21 +29,19 @@ export default function App() {
     setCube((prev) => ({ ...prev, rotation: q }));
   }, []);
 
-  // Capture current rotation at click time so the animation starts from the
-  // exact orientation visible to the user when they pressed the button.
+  // submit() now calls onBegin() synchronously, so it must not be called
+  // inside a React state updater. Read the live rotation from cubeRef instead.
   const handleReset = useCallback(() => {
-    setCube((prev) => {
-      animService.current.submit(
-        new EasedAnimation(
-          new RotationAnimation(prev.rotation, new THREE.Quaternion(), (q) => {
-            setCube((p) => ({ ...p, rotation: q }));
-          }),
-          easeInOutCubic,
-        ),
-        RESET_DURATION_MS,
-      );
-      return prev; // no immediate state change; animation drives the update
-    });
+    const from = cubeRef.current.rotation.clone();
+    animService.current.submit(
+      new EasedAnimation(
+        new RotationAnimation(from, new THREE.Quaternion(), (q) => {
+          setCube((p) => ({ ...p, rotation: q }));
+        }),
+        easeInOutCubic,
+      ),
+      RESET_DURATION_MS,
+    );
   }, []);
 
   return (
