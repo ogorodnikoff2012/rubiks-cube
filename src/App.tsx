@@ -48,7 +48,7 @@ function MovePair({ cw, ccw, disabled, onMove }: MovePairProps) {
           style={{
             ...moveBtnBase,
             borderColor: accent,
-            color: accent === '#ffffff' ? '#222' : accent,
+            color: accent,
           }}
         >
           {id}
@@ -145,19 +145,14 @@ export default function App() {
           <MovePair cw="R" ccw="R'" disabled={isAnimating} onMove={handleMove} />
         </div>
 
-        {/* Row 3 */}
-        <div />
+        {/* Row 3 – D centre, F bottom-left, B bottom-right */}
+        <div style={topBottomSlot}>
+          <MovePair cw="F" ccw="F'" disabled={isAnimating} onMove={handleMove} />
+        </div>
         <div style={topBottomSlot}>
           <MovePair cw="D" ccw="D'" disabled={isAnimating} onMove={handleMove} />
         </div>
-        <div />
-
-        {/* Row 4 – F and B below the cube */}
-        <div style={{ ...topBottomSlot, justifyContent: 'flex-start', paddingLeft: 8 }}>
-          <MovePair cw="F" ccw="F'" disabled={isAnimating} onMove={handleMove} />
-        </div>
-        <div />
-        <div style={{ ...topBottomSlot, justifyContent: 'flex-end', paddingRight: 8 }}>
+        <div style={topBottomSlot}>
           <MovePair cw="B" ccw="B'" disabled={isAnimating} onMove={handleMove} />
         </div>
       </main>
@@ -183,7 +178,7 @@ const mainGridStyle: React.CSSProperties = {
   flex: 1,
   display: 'grid',
   gridTemplateColumns: '64px 1fr 64px',
-  gridTemplateRows: '56px 1fr 56px 56px',
+  gridTemplateRows: '56px 1fr 56px',
   overflow: 'hidden',
 };
 
