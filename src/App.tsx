@@ -14,6 +14,25 @@ import type { MoveId } from './model/moves';
 const MOVE_DURATION_MS = 320;
 const RESET_DURATION_MS = 700;
 
+/**
+ * Keyboard → MoveId mapping.
+ * Lowercase letter = CW move, uppercase (Shift+letter) = CCW (prime) move.
+ */
+const HOTKEYS: Record<string, MoveId> = {
+  f: 'F',
+  F: "F'",
+  b: 'B',
+  B: "B'",
+  r: 'R',
+  R: "R'",
+  l: 'L',
+  L: "L'",
+  u: 'U',
+  U: "U'",
+  d: 'D',
+  D: "D'",
+};
+
 // Face accent colors for move buttons.
 const FACE_COLOR: Record<string, string> = {
   R: '#b71234',
@@ -114,6 +133,28 @@ export default function App() {
       MOVE_DURATION_MS,
     );
   }, []);
+
+  // Stable ref so the keydown handler always sees the latest isAnimating
+  // without being re-registered on every state change.
+  const isAnimatingRef = useRef(isAnimating);
+  isAnimatingRef.current = isAnimating;
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Skip when an interactive element has focus (typing in inputs etc.).
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (isAnimatingRef.current) return;
+
+      const move = HOTKEYS[e.key];
+      if (move) {
+        e.preventDefault();
+        handleMove(move);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleMove]);
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
