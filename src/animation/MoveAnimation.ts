@@ -42,9 +42,9 @@ export class MoveAnimation implements IAnimation {
   }
 
   onEnd(): void {
-    // Install the precomputed committed model — no functional dependency on
-    // the React-managed prev, so the update is always consistent.
-    this.setCube(() => this.committedModel);
+    // Commit the precomputed blocks.  Take rotation from prev so that a
+    // concurrent RotationAnimation (reset / mouse drag) is never overwritten.
+    this.setCube((prev) => ({ ...this.committedModel, rotation: prev.rotation }));
     this.onComplete(this.committedModel);
   }
 }

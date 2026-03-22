@@ -255,7 +255,6 @@ export default function App() {
 
   // ── Camera rotation ───────────────────────────────────────────────────────
   const handleRotate = useCallback((q: THREE.Quaternion) => {
-    committedModelRef.current = { ...committedModelRef.current, rotation: q };
     setCube((prev) => ({ ...prev, rotation: q }));
   }, []);
 
@@ -264,7 +263,6 @@ export default function App() {
     animService.current.submit(
       new EasedAnimation(
         new RotationAnimation(from, INITIAL_ROTATION.clone(), (q) => {
-          committedModelRef.current = { ...committedModelRef.current, rotation: q };
           setCube((p) => ({ ...p, rotation: q }));
         }),
         easeInOutCubic,
