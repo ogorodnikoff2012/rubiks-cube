@@ -257,6 +257,18 @@ export default function App() {
     }
   }, [handleMove]);
 
+  const handleResetCube = useCallback(() => {
+    moveQueueRef.current = [];
+    isProcessingRef.current = false;
+    const solved = createSolvedCube();
+    committedModelRef.current = solved;
+    setCube(solved);
+    setMoves([]);
+    setHistoryIndex(0);
+    setQueueLength(0);
+    setIsAnimating(false);
+  }, []);
+
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -320,6 +332,9 @@ export default function App() {
         </button>
         <button onClick={handleScramble} style={resetBtnStyle}>
           Scramble
+        </button>
+        <button onClick={handleResetCube} style={resetBtnStyle}>
+          Reset
         </button>
         <button onClick={handleReset} style={resetBtnStyle}>
           Reset rotation
