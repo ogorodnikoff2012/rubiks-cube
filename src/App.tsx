@@ -26,7 +26,7 @@ const SCRAMBLE_MOVES = 50;
  * Initial cube orientation: front face prominent, top and right faces visible.
  * ~30° around Y (show right), ~−20° around X (tilt top toward viewer).
  */
-const INITIAL_ROTATION = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.35, 0.52, 0));
+const INITIAL_ROTATION = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.35, -0.52, 0));
 
 /**
  * Keyboard → MoveId mapping.
@@ -251,7 +251,7 @@ export default function App() {
     const from = cubeRef.current.rotation.clone();
     animService.current.submit(
       new EasedAnimation(
-        new RotationAnimation(from, new THREE.Quaternion(), (q) => {
+        new RotationAnimation(from, INITIAL_ROTATION.clone(), (q) => {
           setCube((p) => ({ ...p, rotation: q }));
         }),
         easeInOutCubic,
