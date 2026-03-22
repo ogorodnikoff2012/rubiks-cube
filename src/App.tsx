@@ -23,6 +23,12 @@ const RESET_DURATION_MS = 700;
 const SCRAMBLE_MOVES = 50;
 
 /**
+ * Initial cube orientation: front face prominent, top and right faces visible.
+ * ~30° around Y (show right), ~−20° around X (tilt top toward viewer).
+ */
+const INITIAL_ROTATION = new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.35, 0.52, 0));
+
+/**
  * Keyboard → MoveId mapping.
  * Lowercase letter = CW move, uppercase (Shift+letter) = CCW (prime) move.
  */
@@ -84,7 +90,10 @@ function MovePair({ cw, ccw, onMove }: MovePairProps) {
 // --------------------------------------------------------------------------
 
 export default function App() {
-  const [cube, setCube] = useState<CubeModel>(createSolvedCube);
+  const [cube, setCube] = useState<CubeModel>(() => ({
+    ...createSolvedCube(),
+    rotation: INITIAL_ROTATION.clone(),
+  }));
 
   // ── Animation state ──────────────────────────────────────────────────────
   // isAnimating: a move animation is currently in flight.
@@ -260,7 +269,7 @@ export default function App() {
   const handleResetCube = useCallback(() => {
     moveQueueRef.current = [];
     isProcessingRef.current = false;
-    const solved = createSolvedCube();
+    const solved = { ...createSolvedCube(), rotation: INITIAL_ROTATION.clone() };
     committedModelRef.current = solved;
     setCube(solved);
     setMoves([]);
