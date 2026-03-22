@@ -261,8 +261,12 @@ export default function App() {
   }, []);
 
   const handleScramble = useCallback(() => {
+    let lastFace: string | null = null;
     for (let i = 0; i < SCRAMBLE_MOVES; i++) {
-      handleMove(ALL_MOVES[Math.floor(Math.random() * ALL_MOVES.length)]);
+      const pool = ALL_MOVES.filter((m) => m.replace("'", '') !== lastFace);
+      const move = pool[Math.floor(Math.random() * pool.length)];
+      lastFace = move.replace("'", '');
+      handleMove(move);
     }
   }, [handleMove]);
 
