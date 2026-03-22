@@ -1,24 +1,24 @@
 import { SOLVED_COLORS } from '../model/cube';
-import { applyMoveToModel } from '../model/moves';
+import {
+  applyMoveToModel,
+  INVERSE_MOVE,
+  optimizeMoves,
+  repeatMove,
+} from '../model/moves';
 import type { MoveId } from '../model/moves';
 import type { CubeModel, FaceKey } from '../types/cube';
+import { findCenter, findEdge } from '../model/pieces.ts';
 
 export interface SolverStep {
   label: string;
   moves: MoveId[];
 }
 
-// --------------------------------------------------------------------------
-// Helpers
-// --------------------------------------------------------------------------
-
-/** Return the face key that the center piece of `color` currently sits on. */
-function centerFace(cube: CubeModel, color: string): FaceKey {
-  for (const block of cube.blocks) {
-    const entries = Object.entries(block.faceColors) as [FaceKey, string][];
-    if (entries.length === 1 && entries[0][1] === color) return entries[0][0];
+function ensure<T>(value: T | null | undefined): T {
+  if (value === null || value === undefined) {
+    throw new Error(`value is undefined`);
   }
-  throw new Error(`No center with color ${color}`);
+  return value;
 }
 
 // --------------------------------------------------------------------------
@@ -41,7 +41,8 @@ function step0Orientation(cube: CubeModel): MoveId[] {
     R: ['z'],
     L: ["z'"],
   };
-  const whiteFace = centerFace(cube, SOLVED_COLORS.U);
+  const whiteFace = findCenter(cube, SOLVED_COLORS.U)[0];
+
   const toTopMoves = whiteToU[whiteFace] ?? [];
   moves.push(...toTopMoves);
 
@@ -56,10 +57,77 @@ function step0Orientation(cube: CubeModel): MoveId[] {
     R: ["y'"],
     L: ['y'],
   };
-  const greenFace = centerFace(model, SOLVED_COLORS.F);
+  const greenFace = findCenter(model, SOLVED_COLORS.F)[0];
   moves.push(...(greenToF[greenFace] ?? []));
 
   return moves;
+}
+
+function step1WhiteCross(cube: CubeModel): MoveId[] {
+  const result: MoveId[] = [];
+  const addMove = (...moves: MoveId[]) => {
+    for (const m of moves) {
+      result.push(m);
+      cube = applyMoveToModel(cube, m);
+      if (result.length >= 1000) {
+        throw new Error("Internal error, infinite loop");
+      }
+    }
+  };
+
+  const shiftToFace: FaceKey[] = ['F', 'R', 'B', 'L'];
+  const faceToShift: Partial<Record<FaceKey, number>> =
+    Object.fromEntries(shiftToFace.map((face, shift) => [face, shift]));
+
+  for (const frontColor of shiftToFace.map(face => SOLVED_COLORS[face])) {
+    while (true) {
+      const loc = findEdge(cube, SOLVED_COLORS.U, frontColor);
+
+      if (loc[0] === 'U' && loc[1] === 'F') {
+        break;
+      }
+
+      if (loc[0] == 'U') {
+        const shift = ensure(faceToShift[loc[1]]);
+        addMove(...repeatMove("U", shift));
+        addMove("F");
+        addMove(...repeatMove("U'", shift));
+        addMove("F'");
+        continue;
+      }
+
+      if (loc[0] === 'D') {
+        const shift = ensure(faceToShift[loc[1]]);
+        addMove(...repeatMove("D'", shift));
+        addMove('F', 'F');
+        continue;
+      }
+
+      if (loc[1] === 'U') {
+        addMove(loc[0]);
+        continue;
+      }
+
+      if (loc[1] === 'D') {
+        const shift = ensure(faceToShift[loc[0]]);
+        addMove(...repeatMove("D'", shift));
+        addMove("D", "R", "F'", "R'");
+        continue;
+      }
+
+      const shift = ensure(faceToShift[loc[1]]);
+      const dir = (4 + ensure(faceToShift[loc[1]]) - ensure(faceToShift[loc[0]])) % 4;
+
+      addMove(...repeatMove("U'", shift));
+      addMove(dir === 1 ? loc[1] : INVERSE_MOVE[loc[1]]);
+      addMove(...repeatMove("U", shift));
+    }
+
+
+    addMove("y'");
+  }
+
+  return optimizeMoves(result);
 }
 
 // --------------------------------------------------------------------------
@@ -67,5 +135,20 @@ function step0Orientation(cube: CubeModel): MoveId[] {
 // --------------------------------------------------------------------------
 
 export function solveLayerByLayer(cube: CubeModel): SolverStep[] {
-  return [{ label: 'Step 0: Cube Orientation', moves: step0Orientation(cube) }];
+  const steps: [string, (cube: CubeModel) => MoveId[]][] = [
+    ['Step 0: Cube Orientation', step0Orientation],
+    ['Step 1: White Cross', step1WhiteCross],
+  ];
+
+  const result: SolverStep[] = [];
+
+  for (const [label, fn] of steps) {
+    const moves = fn(cube);
+    result.push({ label, moves });
+    for (const move of moves) {
+      cube = applyMoveToModel(cube, move);
+    }
+  }
+
+  return result;
 }

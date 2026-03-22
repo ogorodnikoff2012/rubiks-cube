@@ -1,5 +1,7 @@
 import type { CubeModel, FaceKey } from '../types/cube';
 
+export type CenterLocation = [FaceKey];
+
 /**
  * Location + orientation of an edge piece.
  *
@@ -19,13 +21,23 @@ export type EdgeLocation = [FaceKey, FaceKey];
  */
 export type CornerLocation = [FaceKey, FaceKey, FaceKey];
 
+export function findCenter(cube: CubeModel, col: string) : CenterLocation {
+  for (const block of cube.blocks) {
+    const entries = Object.entries(block.faceColors) as [FaceKey, string][];
+    if (entries.length !== 1) continue;
+    const face = entries.find(([, c]) => c === col)?.[0];
+    if (face !== undefined) return [face];
+  }
+  throw new Error(`Failed to find center piece [${col}]`)
+}
+
 /**
  * Find the edge piece that carries `colA` and `colB`.
  *
  * Returns `[faceOfColA, faceOfColB]`, or `null` if no such piece exists
  * (which would indicate an invalid cube state).
  */
-export function findEdge(cube: CubeModel, colA: string, colB: string): EdgeLocation | null {
+export function findEdge(cube: CubeModel, colA: string, colB: string): EdgeLocation {
   for (const block of cube.blocks) {
     const entries = Object.entries(block.faceColors) as [FaceKey, string][];
     if (entries.length !== 2) continue;
@@ -33,7 +45,7 @@ export function findEdge(cube: CubeModel, colA: string, colB: string): EdgeLocat
     const faceB = entries.find(([, c]) => c === colB)?.[0];
     if (faceA !== undefined && faceB !== undefined) return [faceA, faceB];
   }
-  return null;
+  throw new Error(`Failed to find edge piece [${colA}, ${colB}]`);
 }
 
 /**
@@ -47,7 +59,7 @@ export function findCorner(
   colA: string,
   colB: string,
   colC: string,
-): CornerLocation | null {
+): CornerLocation {
   for (const block of cube.blocks) {
     const entries = Object.entries(block.faceColors) as [FaceKey, string][];
     if (entries.length !== 3) continue;
@@ -57,5 +69,5 @@ export function findCorner(
     if (faceA !== undefined && faceB !== undefined && faceC !== undefined)
       return [faceA, faceB, faceC];
   }
-  return null;
+  throw new Error(`Failed to find corner piece [${colA}, ${colB}, ${colC}]`);
 }

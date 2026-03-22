@@ -13,15 +13,15 @@ yarn format:check
 
 ## Stack
 
-| Layer | Choice |
-|---|---|
-| Language | TypeScript 5 (strict, `noUnusedLocals`, `noUncheckedSideEffectImports`) |
-| UI framework | React 18 (StrictMode) |
-| 3-D rendering | Three.js via WebGL, mounted on a plain `<canvas>` |
-| Build | Vite 6 (split tsconfig: `tsconfig.app.json` for src, `tsconfig.node.json` for vite config) |
-| Package manager | Yarn classic (v1) |
-| Linter | ESLint 9 flat config — `typescript-eslint` strict + `react-hooks` + `react-refresh` |
-| Formatter | Prettier — single quotes, trailing commas, 100-char width |
+| Layer           | Choice                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| Language        | TypeScript 5 (strict, `noUnusedLocals`, `noUncheckedSideEffectImports`)                    |
+| UI framework    | React 18 (StrictMode)                                                                      |
+| 3-D rendering   | Three.js via WebGL, mounted on a plain `<canvas>`                                          |
+| Build           | Vite 6 (split tsconfig: `tsconfig.app.json` for src, `tsconfig.node.json` for vite config) |
+| Package manager | Yarn classic (v1)                                                                          |
+| Linter          | ESLint 9 flat config — `typescript-eslint` strict + `react-hooks` + `react-refresh`        |
+| Formatter       | Prettier — single quotes, trailing commas, 100-char width                                  |
 
 ---
 
@@ -69,9 +69,9 @@ Grid positions: each axis is in `{-1, 0, 1}`. There are 26 visible cubies; the c
 
 ```ts
 interface Block {
-  position:   [number, number, number];   // grid coords, each ∈ {-1, 0, 1}
-  faceColors: Partial<Record<FaceKey, string>>;  // only exposed faces
-  rotation?:  THREE.Quaternion;           // set only during a move animation
+  position: [number, number, number]; // grid coords, each ∈ {-1, 0, 1}
+  faceColors: Partial<Record<FaceKey, string>>; // only exposed faces
+  rotation?: THREE.Quaternion; // set only during a move animation
 }
 ```
 
@@ -81,8 +81,8 @@ interface Block {
 
 ```ts
 interface CubeModel {
-  blocks:   Block[];
-  rotation: THREE.Quaternion;   // whole-cube orientation (mouse drag)
+  blocks: Block[];
+  rotation: THREE.Quaternion; // whole-cube orientation (mouse drag)
 }
 ```
 
@@ -90,14 +90,14 @@ interface CubeModel {
 
 ### Solved-state colors (WCA orientation)
 
-| Face | Key | Color |
-|---|---|---|
-| Top | `U` | white `#ffffff` |
+| Face   | Key | Color            |
+| ------ | --- | ---------------- |
+| Top    | `U` | white `#ffffff`  |
 | Bottom | `D` | yellow `#ffd500` |
-| Front | `F` | green `#009b48` |
-| Back | `B` | blue `#0046ad` |
-| Right | `R` | red `#b71234` |
-| Left | `L` | orange `#ff5800` |
+| Front  | `F` | green `#009b48`  |
+| Back   | `B` | blue `#0046ad`   |
+| Right  | `R` | red `#b71234`    |
+| Left   | `L` | orange `#ff5800` |
 
 ---
 
@@ -113,14 +113,14 @@ interface CubeModel {
 
 **`MOVE_SPECS`** — per-move `{ axis, angle, axisIndex, sliceValue }`:
 
-| Move | Axis | Angle | Slice |
-|---|---|---|---|
-| R | +x | +90° | x = +1 |
-| L | +x | −90° | x = −1 |
-| U | +y | +90° | y = +1 |
-| D | +y | −90° | y = −1 |
-| F | +z | −90° | z = +1 |
-| B | +z | +90° | z = −1 |
+| Move        | Axis      | Angle         | Slice      |
+| ----------- | --------- | ------------- | ---------- |
+| R           | +x        | +90°          | x = +1     |
+| L           | +x        | −90°          | x = −1     |
+| U           | +y        | +90°          | y = +1     |
+| D           | +y        | −90°          | y = −1     |
+| F           | +z        | −90°          | z = +1     |
+| B           | +z        | +90°          | z = −1     |
 | prime moves | same axis | negated angle | same slice |
 
 Angles follow the right-hand rule (positive = CCW from +axis). This matches standard Rubik's notation where each letter is CW when looking at that face.
@@ -128,6 +128,7 @@ Angles follow the right-hand rule (positive = CCW from +axis). This matches stan
 **`getAffectedIndices(blocks, move)`** — returns array indices of blocks in the move's slice.
 
 **`applyMoveToModel(cube, move)`** — pure function that returns a new `CubeModel`:
+
 1. Applies the rotation quaternion to each affected block's `position` (integer grid coords, rounded after rotation).
 2. Remaps `faceColors` by rotating each face's unit normal through the same quaternion and mapping back to a `FaceKey` — no hardcoded permutation tables.
 3. Clears `block.rotation` on all affected blocks.
@@ -197,11 +198,13 @@ Scene
 ### Orbital rotation during moves
 
 When `block.rotation` is set, the cubie group gets:
+
 ```ts
-worldPos = originalGridPos.applyQuaternion(block.rotation)
-cubieGroup.position   = worldPos        // orbits the cube centre
-cubieGroup.quaternion = block.rotation  // face orientations follow
+worldPos = originalGridPos.applyQuaternion(block.rotation);
+cubieGroup.position = worldPos; // orbits the cube centre
+cubieGroup.quaternion = block.rotation; // face orientations follow
 ```
+
 This makes cubies sweep around the cube centre rather than spinning in place. Without this, animated cubies would detach from the face visually.
 
 At the move's end `block.rotation` is cleared and the logical block positions/face-colors are updated — the visual state is continuous at the boundary.
@@ -209,6 +212,7 @@ At the move's end `block.rotation` is cleared and the logical block positions/fa
 ### React integration
 
 Three separate `useEffect` hooks:
+
 1. **Init** (runs once): creates `WebGLRenderer`, `Scene`, `PerspectiveCamera`, `ResizeObserver`.
 2. **Rebuild** (runs on every `model` change): removes the old `cubeGroup`, builds a new one from scratch via `buildCubeGroup(model)`.
 3. **Render loop** (runs once): `requestAnimationFrame` loop calling `renderer.render(scene, camera)`.
@@ -220,8 +224,8 @@ The rebuild-on-every-model-change approach is simple and correct; geometry is ch
 `mousedown` / `mousemove` / `mouseup` handlers on `canvas`/`window`. Each `mousemove` delta is converted to a world-space quaternion delta and composed onto `CubeModel.rotation` via the `onRotate` prop:
 
 ```ts
-delta = qY(dx) * qX(dy)
-next  = delta * model.rotation
+delta = qY(dx) * qX(dy);
+next = delta * model.rotation;
 ```
 
 ---
@@ -232,23 +236,23 @@ The root component. Holds all mutable state and orchestrates animations.
 
 ### State
 
-| State | Type | Purpose |
-|---|---|---|
-| `cube` | `CubeModel` | Current rendered cube (React-managed) |
-| `isAnimating` | `boolean` | A move animation is in flight |
-| `queueLength` | `number` | Moves waiting behind the current one |
-| `moves` | `MoveId[]` | Full history of committed forward moves |
-| `historyIndex` | `number` | How many history entries are applied; `moves[historyIndex..]` is the redo stack |
+| State          | Type        | Purpose                                                                         |
+| -------------- | ----------- | ------------------------------------------------------------------------------- |
+| `cube`         | `CubeModel` | Current rendered cube (React-managed)                                           |
+| `isAnimating`  | `boolean`   | A move animation is in flight                                                   |
+| `queueLength`  | `number`    | Moves waiting behind the current one                                            |
+| `moves`        | `MoveId[]`  | Full history of committed forward moves                                         |
+| `historyIndex` | `number`    | How many history entries are applied; `moves[historyIndex..]` is the redo stack |
 
 ### Refs (synchronous state, bypass React batching)
 
-| Ref | Purpose |
-|---|---|
-| `moveQueueRef` | Pending `MoveId[]`; mutated synchronously in callbacks |
-| `isProcessingRef` | Guards single drain-start and one-shot redo truncation per batch |
-| `historyIndexRef` | Snapshot of `historyIndex` for reading in callbacks before re-render |
+| Ref                 | Purpose                                                                                          |
+| ------------------- | ------------------------------------------------------------------------------------------------ |
+| `moveQueueRef`      | Pending `MoveId[]`; mutated synchronously in callbacks                                           |
+| `isProcessingRef`   | Guards single drain-start and one-shot redo truncation per batch                                 |
+| `historyIndexRef`   | Snapshot of `historyIndex` for reading in callbacks before re-render                             |
 | `committedModelRef` | Fully-resolved cube model; updated synchronously in `onComplete` — one render ahead of `cubeRef` |
-| `isBusyRef` | `isAnimating \|\| queueLength > 0`; read in keydown handler |
+| `isBusyRef`         | `isAnimating \|\| queueLength > 0`; read in keydown handler                                      |
 
 ### Move execution pipeline
 
@@ -280,14 +284,14 @@ handleMove(move)
 
 ### Keyboard shortcuts
 
-| Key | Action |
-|---|---|
-| `f` | F (CW) |
-| `F` (Shift+f) | F′ (CCW) |
-| `b/B`, `r/R`, `l/L`, `u/U`, `d/D` | same pattern for B, R, L, U, D |
-| `Ctrl+Z` | Undo |
-| `Ctrl+Shift+Z` / `Ctrl+Y` | Redo |
-| `Escape` | Clear move queue (current animation finishes) |
+| Key                               | Action                                        |
+| --------------------------------- | --------------------------------------------- |
+| `f`                               | F (CW)                                        |
+| `F` (Shift+f)                     | F′ (CCW)                                      |
+| `b/B`, `r/R`, `l/L`, `u/U`, `d/D` | same pattern for B, R, L, U, D                |
+| `Ctrl+Z`                          | Undo                                          |
+| `Ctrl+Shift+Z` / `Ctrl+Y`         | Redo                                          |
+| `Escape`                          | Clear move queue (current animation finishes) |
 
 ---
 

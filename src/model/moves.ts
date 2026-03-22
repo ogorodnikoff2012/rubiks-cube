@@ -104,14 +104,14 @@ export interface MoveSpec {
 const H = Math.PI / 2;
 
 export const MOVE_SPECS: Record<MoveId, MoveSpec> = {
-  R: { axis: new THREE.Vector3(1, 0, 0), angle: H, axisIndex: 0, sliceValue: 1 },
-  "R'": { axis: new THREE.Vector3(1, 0, 0), angle: -H, axisIndex: 0, sliceValue: 1 },
-  L: { axis: new THREE.Vector3(1, 0, 0), angle: -H, axisIndex: 0, sliceValue: -1 },
-  "L'": { axis: new THREE.Vector3(1, 0, 0), angle: H, axisIndex: 0, sliceValue: -1 },
-  U: { axis: new THREE.Vector3(0, 1, 0), angle: H, axisIndex: 1, sliceValue: 1 },
-  "U'": { axis: new THREE.Vector3(0, 1, 0), angle: -H, axisIndex: 1, sliceValue: 1 },
-  D: { axis: new THREE.Vector3(0, 1, 0), angle: -H, axisIndex: 1, sliceValue: -1 },
-  "D'": { axis: new THREE.Vector3(0, 1, 0), angle: H, axisIndex: 1, sliceValue: -1 },
+  R: { axis: new THREE.Vector3(1, 0, 0), angle: -H, axisIndex: 0, sliceValue: 1 },
+  "R'": { axis: new THREE.Vector3(1, 0, 0), angle: H, axisIndex: 0, sliceValue: 1 },
+  L: { axis: new THREE.Vector3(1, 0, 0), angle: H, axisIndex: 0, sliceValue: -1 },
+  "L'": { axis: new THREE.Vector3(1, 0, 0), angle: -H, axisIndex: 0, sliceValue: -1 },
+  U: { axis: new THREE.Vector3(0, 1, 0), angle: -H, axisIndex: 1, sliceValue: 1 },
+  "U'": { axis: new THREE.Vector3(0, 1, 0), angle: H, axisIndex: 1, sliceValue: 1 },
+  D: { axis: new THREE.Vector3(0, 1, 0), angle: H, axisIndex: 1, sliceValue: -1 },
+  "D'": { axis: new THREE.Vector3(0, 1, 0), angle: -H, axisIndex: 1, sliceValue: -1 },
   F: { axis: new THREE.Vector3(0, 0, 1), angle: -H, axisIndex: 2, sliceValue: 1 },
   "F'": { axis: new THREE.Vector3(0, 0, 1), angle: H, axisIndex: 2, sliceValue: 1 },
   B: { axis: new THREE.Vector3(0, 0, 1), angle: H, axisIndex: 2, sliceValue: -1 },
@@ -182,9 +182,56 @@ function remapFaceColors(faceColors: FaceColors, rotation: THREE.Quaternion): Fa
   return result;
 }
 
+function rleMoves(moves: MoveId[]): {move: MoveId, count: number}[] {
+  const result: {move: MoveId, count: number}[] = [];
+
+  for (const move of moves) {
+    if (result.length === 0) {
+      result.push({ move, count: 1 });
+      continue;
+    }
+
+    const lastMove = result[result.length - 1].move;
+    if (lastMove === move) {
+      ++result[result.length - 1].count;
+      continue;
+    }
+    if (lastMove === INVERSE_MOVE[move]) {
+      --result[result.length - 1].count;
+    }
+
+    result.push({ move, count: 1 });
+  }
+
+  return result;
+}
+
 // --------------------------------------------------------------------------
 // Public API
 // --------------------------------------------------------------------------
+
+export function repeatMove(move: MoveId, n: number): MoveId[] {
+  if (!Number.isInteger(n)) {
+    throw new Error(`Failed to repeat move n times: n must be an integer`);
+  }
+  n = ((n % 4) + 4) % 4;
+  switch (n) {
+    case 0:
+      return [];
+    case 1:
+      return [move];
+    case 2:
+      return [move, move];
+    case 3:
+      return [INVERSE_MOVE[move]];
+  }
+  throw new Error(`Unreachable`);
+}
+
+export function optimizeMoves(moves: MoveId[]): MoveId[] {
+  const rle = rleMoves(moves);
+  return rle.map(({move, count}) => repeatMove(move, count)).flat();
+}
 
 /** Returns the indices (into cube.blocks) of blocks that belong to `move`'s slice. */
 export function getAffectedIndices(blocks: Block[], move: MoveId): number[] {
