@@ -5,7 +5,25 @@ import type { Block, CubeModel, FaceColors, FaceKey } from '../types/cube';
 // Move identifiers
 // --------------------------------------------------------------------------
 
-export type MoveId = 'R' | "R'" | 'L' | "L'" | 'U' | "U'" | 'D' | "D'" | 'F' | "F'" | 'B' | "B'";
+export type MoveId =
+  | 'R'
+  | "R'"
+  | 'L'
+  | "L'"
+  | 'U'
+  | "U'"
+  | 'D'
+  | "D'"
+  | 'F'
+  | "F'"
+  | 'B'
+  | "B'"
+  | 'x'
+  | "x'"
+  | 'y'
+  | "y'"
+  | 'z'
+  | "z'";
 
 /** All valid move identifiers, useful for random-move generation. */
 export const ALL_MOVES: MoveId[] = [
@@ -37,6 +55,12 @@ export const INVERSE_MOVE: Record<MoveId, MoveId> = {
   "F'": 'F',
   B: "B'",
   "B'": 'B',
+  x: "x'",
+  "x'": 'x',
+  y: "y'",
+  "y'": 'y',
+  z: "z'",
+  "z'": 'z',
 };
 
 /** Human-readable label pairs shown on the UI buttons. */
@@ -73,6 +97,8 @@ export interface MoveSpec {
   readonly axisIndex: 0 | 1 | 2;
   /** Value of that component for affected blocks (+1 or -1). */
   readonly sliceValue: 1 | -1;
+  /** If true, all blocks are affected (whole-cube rotation). */
+  readonly allBlocks?: true;
 }
 
 const H = Math.PI / 2;
@@ -90,6 +116,31 @@ export const MOVE_SPECS: Record<MoveId, MoveSpec> = {
   "F'": { axis: new THREE.Vector3(0, 0, 1), angle: H, axisIndex: 2, sliceValue: 1 },
   B: { axis: new THREE.Vector3(0, 0, 1), angle: H, axisIndex: 2, sliceValue: -1 },
   "B'": { axis: new THREE.Vector3(0, 0, 1), angle: -H, axisIndex: 2, sliceValue: -1 },
+  // Whole-cube rotations (same axis/angle as the corresponding face move)
+  x: { axis: new THREE.Vector3(1, 0, 0), angle: H, axisIndex: 0, sliceValue: 1, allBlocks: true },
+  "x'": {
+    axis: new THREE.Vector3(1, 0, 0),
+    angle: -H,
+    axisIndex: 0,
+    sliceValue: 1,
+    allBlocks: true,
+  },
+  y: { axis: new THREE.Vector3(0, 1, 0), angle: H, axisIndex: 1, sliceValue: 1, allBlocks: true },
+  "y'": {
+    axis: new THREE.Vector3(0, 1, 0),
+    angle: -H,
+    axisIndex: 1,
+    sliceValue: 1,
+    allBlocks: true,
+  },
+  z: { axis: new THREE.Vector3(0, 0, 1), angle: -H, axisIndex: 2, sliceValue: 1, allBlocks: true },
+  "z'": {
+    axis: new THREE.Vector3(0, 0, 1),
+    angle: H,
+    axisIndex: 2,
+    sliceValue: 1,
+    allBlocks: true,
+  },
 };
 
 // --------------------------------------------------------------------------
@@ -137,7 +188,9 @@ function remapFaceColors(faceColors: FaceColors, rotation: THREE.Quaternion): Fa
 
 /** Returns the indices (into cube.blocks) of blocks that belong to `move`'s slice. */
 export function getAffectedIndices(blocks: Block[], move: MoveId): number[] {
-  const { axisIndex, sliceValue } = MOVE_SPECS[move];
+  const spec = MOVE_SPECS[move];
+  if (spec.allBlocks) return blocks.map((_, i) => i);
+  const { axisIndex, sliceValue } = spec;
   return blocks.reduce<number[]>((acc, b, i) => {
     if (b.position[axisIndex] === sliceValue) acc.push(i);
     return acc;
@@ -149,11 +202,13 @@ export function getAffectedIndices(blocks: Block[], move: MoveId): number[] {
  * for `move`.  Per-block rotation fields are cleared (animation is done).
  */
 export function applyMoveToModel(cube: CubeModel, move: MoveId): CubeModel {
-  const { axis, angle, axisIndex, sliceValue } = MOVE_SPECS[move];
+  const spec = MOVE_SPECS[move];
+  const { axis, angle, axisIndex, sliceValue } = spec;
   const rotation = new THREE.Quaternion().setFromAxisAngle(axis, angle);
 
   const blocks: Block[] = cube.blocks.map((block) => {
-    if (block.position[axisIndex] !== sliceValue) {
+    const affected = spec.allBlocks || block.position[axisIndex] === sliceValue;
+    if (!affected) {
       // Not on this slice — only clear a stale animation rotation if present.
       if (!block.rotation) return block;
       const { rotation: _r, ...rest } = block;

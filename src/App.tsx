@@ -46,6 +46,12 @@ const HOTKEYS: Record<string, MoveId> = {
   U: "U'",
   d: 'D',
   D: "D'",
+  x: 'x',
+  X: "x'",
+  y: 'y',
+  Y: "y'",
+  z: 'z',
+  Z: "z'",
 };
 
 // Face accent colors for move buttons.
@@ -365,6 +371,13 @@ export default function App() {
         <button onClick={handleReset} style={resetBtnStyle}>
           Reset rotation
         </button>
+        <span style={dividerStyle} />
+        {(['x', "x'", 'y', "y'", 'z', "z'"] as const).map((id) => (
+          <button key={id} onClick={() => handleMove(id)} style={cubeTurnBtnStyle}>
+            {id}
+          </button>
+        ))}
+        <span style={dividerStyle} />
         <button onClick={() => setIsPanelOpen((v) => !v)} style={iconBtnStyle}>
           {isPanelOpen ? 'Solver ◀' : 'Solver ▶'}
         </button>
@@ -473,6 +486,25 @@ const resetBtnStyle: React.CSSProperties = {
   border: '1px solid #1a5276',
   borderRadius: 4,
   cursor: 'pointer',
+};
+
+const cubeTurnBtnStyle: React.CSSProperties = {
+  padding: '4px 8px',
+  fontSize: '0.8rem',
+  fontWeight: 700,
+  fontFamily: 'monospace',
+  background: 'transparent',
+  color: '#8899bb',
+  border: '1px solid #2a3a5a',
+  borderRadius: 4,
+  cursor: 'pointer',
+};
+
+const dividerStyle: React.CSSProperties = {
+  width: 1,
+  alignSelf: 'stretch',
+  background: '#1e2e4a',
+  margin: '0 4px',
 };
 
 // Suppress unused-variable warning for MOVE_PAIRS (exported for potential future use).
