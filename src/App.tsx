@@ -6,6 +6,7 @@ import { MoveAnimation } from './animation/MoveAnimation';
 import { RotationAnimation } from './animation/RotationAnimation';
 import { easeInOutCubic } from './animation/easing';
 import CubeRenderer from './components/CubeRenderer';
+import SolverPanel from './components/SolverPanel';
 import { createSolvedCube } from './model/cube';
 import {
   ALL_MOVES,
@@ -101,6 +102,10 @@ export default function App() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [queueLength, setQueueLength] = useState(0);
   const isBusy = isAnimating || queueLength > 0;
+
+  // ── Solver panel ─────────────────────────────────────────────────────────
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [solverLog] = useState<string[]>([]);
 
   // ── History ──────────────────────────────────────────────────────────────
   const [moves, setMoves] = useState<MoveId[]>([]);
@@ -328,7 +333,15 @@ export default function App() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
       <header style={headerStyle}>
         <h1 style={{ fontSize: '1.1rem', fontWeight: 600, letterSpacing: '0.05em', flex: 1 }}>
           Rubik&rsquo;s Cube
@@ -352,36 +365,43 @@ export default function App() {
         <button onClick={handleReset} style={resetBtnStyle}>
           Reset rotation
         </button>
+        <button onClick={() => setIsPanelOpen((v) => !v)} style={iconBtnStyle}>
+          {isPanelOpen ? 'Solver ◀' : 'Solver ▶'}
+        </button>
       </header>
 
-      <main style={mainGridStyle}>
-        {/* Row 1 */}
-        <div />
-        <div style={centreSlot}>
-          <MovePair cw="U" ccw="U'" onMove={handleMove} />
-        </div>
-        <div />
+      <div style={bodyStyle}>
+        <main style={mainGridStyle}>
+          {/* Row 1 */}
+          <div />
+          <div style={centreSlot}>
+            <MovePair cw="U" ccw="U'" onMove={handleMove} />
+          </div>
+          <div />
 
-        {/* Row 2 */}
-        <div style={centreSlot}>
-          <MovePair cw="L" ccw="L'" onMove={handleMove} />
-        </div>
-        <CubeRenderer model={cube} onRotate={handleRotate} />
-        <div style={centreSlot}>
-          <MovePair cw="R" ccw="R'" onMove={handleMove} />
-        </div>
+          {/* Row 2 */}
+          <div style={centreSlot}>
+            <MovePair cw="L" ccw="L'" onMove={handleMove} />
+          </div>
+          <CubeRenderer model={cube} onRotate={handleRotate} />
+          <div style={centreSlot}>
+            <MovePair cw="R" ccw="R'" onMove={handleMove} />
+          </div>
 
-        {/* Row 3 – F bottom-left, D centre, B bottom-right */}
-        <div style={centreSlot}>
-          <MovePair cw="F" ccw="F'" onMove={handleMove} />
-        </div>
-        <div style={centreSlot}>
-          <MovePair cw="D" ccw="D'" onMove={handleMove} />
-        </div>
-        <div style={centreSlot}>
-          <MovePair cw="B" ccw="B'" onMove={handleMove} />
-        </div>
-      </main>
+          {/* Row 3 – F bottom-left, D centre, B bottom-right */}
+          <div style={centreSlot}>
+            <MovePair cw="F" ccw="F'" onMove={handleMove} />
+          </div>
+          <div style={centreSlot}>
+            <MovePair cw="D" ccw="D'" onMove={handleMove} />
+          </div>
+          <div style={centreSlot}>
+            <MovePair cw="B" ccw="B'" onMove={handleMove} />
+          </div>
+        </main>
+
+        {isPanelOpen && <SolverPanel lines={solverLog} />}
+      </div>
     </div>
   );
 }
@@ -398,6 +418,12 @@ const headerStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: 16,
   userSelect: 'none',
+};
+
+const bodyStyle: React.CSSProperties = {
+  flex: 1,
+  display: 'flex',
+  overflow: 'hidden',
 };
 
 const mainGridStyle: React.CSSProperties = {
