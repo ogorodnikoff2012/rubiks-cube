@@ -7,6 +7,7 @@ import { RotationAnimation } from './animation/RotationAnimation';
 import { easeInOutCubic } from './animation/easing';
 import CubeRenderer from './components/CubeRenderer';
 import SolverPanel from './components/SolverPanel';
+import { solveLayerByLayer } from './solver/layerByLayer';
 import { createSolvedCube } from './model/cube';
 import {
   ALL_MOVES,
@@ -111,7 +112,7 @@ export default function App() {
 
   // ── Solver panel ─────────────────────────────────────────────────────────
   const [isPanelOpen, setIsPanelOpen] = useState(false);
-  const [solverLog] = useState<string[]>([]);
+  const [solverLog, setSolverLog] = useState<string[]>([]);
 
   // ── History ──────────────────────────────────────────────────────────────
   const [moves, setMoves] = useState<MoveId[]>([]);
@@ -125,7 +126,8 @@ export default function App() {
   cubeRef.current = cube;
 
   // Mutable queue — accessed synchronously inside animation callbacks.
-  const moveQueueRef = useRef<MoveId[]>([]);
+  // onCommit is called after the move commits; used by executeMove() promises.
+  const moveQueueRef = useRef<{ move: MoveId; onCommit?: () => void }[]>([]);
   // True while any move is in-flight or enqueued; prevents re-truncating the
   // redo stack mid-batch and avoids spurious drain starts.
   const isProcessingRef = useRef(false);
@@ -193,7 +195,7 @@ export default function App() {
         return;
       }
 
-      const [move, ...rest] = moveQueueRef.current;
+      const [{ move, onCommit }, ...rest] = moveQueueRef.current;
       moveQueueRef.current = rest;
       setQueueLength(rest.length);
       setIsAnimating(true);
@@ -201,6 +203,7 @@ export default function App() {
       runMoveAnimation(move, committedModelRef.current, (committed) => {
         committedModelRef.current = committed;
         recordMove(move);
+        onCommit?.();
         drainQueue(recordMove);
       });
     },
@@ -210,7 +213,7 @@ export default function App() {
   // ── Public move handlers ──────────────────────────────────────────────────
   const handleMove = useCallback(
     (move: MoveId) => {
-      moveQueueRef.current = [...moveQueueRef.current, move];
+      moveQueueRef.current = [...moveQueueRef.current, { move }];
       setQueueLength(moveQueueRef.current.length);
 
       if (!isProcessingRef.current) {
@@ -226,6 +229,46 @@ export default function App() {
     },
     [drainQueue],
   );
+
+  /**
+   * Like handleMove but returns a Promise that resolves when the move commits.
+   * Used by the solver to sequence moves and log them one at a time.
+   */
+  const executeMove = useCallback(
+    (move: MoveId): Promise<void> =>
+      new Promise((resolve) => {
+        moveQueueRef.current = [...moveQueueRef.current, { move, onCommit: resolve }];
+        setQueueLength(moveQueueRef.current.length);
+        if (!isProcessingRef.current) {
+          isProcessingRef.current = true;
+          const idx = historyIndexRef.current;
+          setMoves((prev) => prev.slice(0, idx));
+          drainQueue((m) => {
+            setMoves((prev) => [...prev, m]);
+            setHistoryIndex((i) => i + 1);
+          });
+        }
+      }),
+    [drainQueue],
+  );
+
+  const handleSolve = useCallback(async () => {
+    setIsPanelOpen(true);
+    setSolverLog([]);
+    const steps = solveLayerByLayer(committedModelRef.current);
+    for (const { label, moves: stepMoves } of steps) {
+      setSolverLog((prev) => [...prev, label]);
+      if (stepMoves.length === 0) {
+        setSolverLog((prev) => [...prev, '  (already correct)']);
+      } else {
+        for (const move of stepMoves) {
+          await executeMove(move);
+          setSolverLog((prev) => [...prev, `  ${move}`]);
+        }
+      }
+    }
+    setSolverLog((prev) => [...prev, '', 'Done.']);
+  }, [executeMove]);
 
   const handleUndo = useCallback(() => {
     if (historyIndex === 0 || isBusy) return;
@@ -364,6 +407,9 @@ export default function App() {
         </button>
         <button onClick={handleScramble} style={resetBtnStyle}>
           Scramble
+        </button>
+        <button onClick={handleSolve} disabled={isBusy} style={resetBtnStyle}>
+          Solve
         </button>
         <button onClick={handleResetCube} style={resetBtnStyle}>
           Reset
