@@ -182,8 +182,8 @@ function remapFaceColors(faceColors: FaceColors, rotation: THREE.Quaternion): Fa
   return result;
 }
 
-function rleMoves(moves: MoveId[]): {move: MoveId, count: number}[] {
-  const result: {move: MoveId, count: number}[] = [];
+function rleMoves(moves: MoveId[]): { move: MoveId; count: number }[] {
+  const result: { move: MoveId; count: number }[] = [];
 
   for (const move of moves) {
     if (result.length === 0) {
@@ -191,13 +191,14 @@ function rleMoves(moves: MoveId[]): {move: MoveId, count: number}[] {
       continue;
     }
 
-    const lastMove = result[result.length - 1].move;
-    if (lastMove === move) {
-      ++result[result.length - 1].count;
+    const last = result[result.length - 1];
+    if (last.move === move) {
+      ++last.count;
       continue;
     }
-    if (lastMove === INVERSE_MOVE[move]) {
-      --result[result.length - 1].count;
+    if (last.move === INVERSE_MOVE[move]) {
+      --last.count;
+      continue;
     }
 
     result.push({ move, count: 1 });
@@ -210,9 +211,16 @@ function rleMoves(moves: MoveId[]): {move: MoveId, count: number}[] {
 // Public API
 // --------------------------------------------------------------------------
 
+/**
+ * Expand `move` repeated `n` times into a minimal sequence of the same move
+ * (mod 4). For example, `repeatMove('R', 3)` returns `["R'"]`.
+ *
+ * `n` may be negative or greater than 3; the result is always normalised to
+ * the shortest equivalent sequence (0–2 forward copies, or one inverse).
+ */
 export function repeatMove(move: MoveId, n: number): MoveId[] {
   if (!Number.isInteger(n)) {
-    throw new Error(`Failed to repeat move n times: n must be an integer`);
+    throw new Error(`repeatMove: n must be an integer, got ${n}`);
   }
   n = ((n % 4) + 4) % 4;
   switch (n) {
@@ -228,9 +236,18 @@ export function repeatMove(move: MoveId, n: number): MoveId[] {
   throw new Error(`Unreachable`);
 }
 
+/**
+ * Simplify a move sequence by cancelling consecutive inverse pairs and
+ * collapsing repeated identical moves (e.g. three R moves → R′).
+ *
+ * The result is semantically equivalent to the input but potentially shorter.
+ * Note: this is a single-pass, greedy optimiser — it does not attempt global
+ * cancellation across non-adjacent moves.
+ */
 export function optimizeMoves(moves: MoveId[]): MoveId[] {
-  const rle = rleMoves(moves);
-  return rle.map(({move, count}) => repeatMove(move, count)).flat();
+  return rleMoves(moves)
+    .map(({ move, count }) => repeatMove(move, count))
+    .flat();
 }
 
 /** Returns the indices (into cube.blocks) of blocks that belong to `move`'s slice. */

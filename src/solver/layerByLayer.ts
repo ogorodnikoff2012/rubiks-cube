@@ -7,7 +7,7 @@ import {
 } from '../model/moves';
 import type { MoveId } from '../model/moves';
 import type { CubeModel, FaceKey } from '../types/cube';
-import { findCenter, findEdge } from '../model/pieces.ts';
+import { findCenter, findEdge } from '../model/pieces';
 
 export interface SolverStep {
   label: string;
@@ -16,7 +16,7 @@ export interface SolverStep {
 
 function ensure<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) {
-    throw new Error(`value is undefined`);
+    throw new Error(`Expected a value but got ${value}`);
   }
   return value;
 }

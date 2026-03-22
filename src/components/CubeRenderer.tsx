@@ -19,6 +19,9 @@ const FACE_NORMAL: Record<FaceKey, THREE.Vector3> = {
   L: new THREE.Vector3(-1, 0, 0),
 };
 
+/** Vertical field of view (degrees) used when the viewport is square or landscape. */
+const BASE_FOV = 45;
+
 /** Half-size of a cubie in world units. */
 const HALF = 0.48;
 
@@ -119,6 +122,7 @@ interface Props {
 }
 
 export default function CubeRenderer({ model, onRotate }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Hold references to Three.js objects that must survive re-renders
@@ -146,25 +150,7 @@ export default function CubeRenderer({ model, onRotate }: Props) {
     camera.position.set(0, 0, 8);
     cameraRef.current = camera;
 
-    // Resize observer keeps canvas and camera aspect ratio correct
-    const ro = new ResizeObserver(() => {
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      renderer.setSize(w, h, false);
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-    });
-    ro.observe(canvas);
-
-    // Trigger an initial size
-    const w = canvas.clientWidth || canvas.offsetWidth;
-    const h = canvas.clientHeight || canvas.offsetHeight;
-    renderer.setSize(w || 800, h || 600, false);
-    camera.aspect = (w || 800) / (h || 600);
-    camera.updateProjectionMatrix();
-
     return () => {
-      ro.disconnect();
       cancelAnimationFrame(animFrameRef.current);
       renderer.dispose();
     };
@@ -190,9 +176,40 @@ export default function CubeRenderer({ model, onRotate }: Props) {
       const renderer = rendererRef.current;
       const scene = sceneRef.current;
       const camera = cameraRef.current;
-      if (renderer && scene && camera) {
-        renderer.render(scene, camera);
+      const container = containerRef.current;
+      if (!renderer || !scene || !camera || !container) return;
+
+      // Read size from the wrapper div, not the canvas. The canvas is a
+      // replaced element whose intrinsic size (canvas.width attribute) would
+      // prevent the grid cell from shrinking (min-width: auto). The wrapper
+      // div has min-width: 0 so it tracks available space correctly.
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w > 0 && h > 0) {
+        const size = renderer.getSize(new THREE.Vector2());
+        if (size.x !== w || size.y !== h) {
+          // updateStyle=true: Three.js sets canvas.style.width/height in px,
+          // keeping the canvas sized to the container.
+          renderer.setSize(w, h);
+        }
+
+        const aspect = w / h;
+        // When portrait (aspect < 1), widen the vertical FOV so the cube
+        // always fits within min(width, height) rather than just the height.
+        const fov =
+          aspect >= 1
+            ? BASE_FOV
+            : THREE.MathUtils.radToDeg(
+                2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(BASE_FOV) / 2) / aspect),
+              );
+        if (camera.aspect !== aspect || camera.fov !== fov) {
+          camera.aspect = aspect;
+          camera.fov = fov;
+          camera.updateProjectionMatrix();
+        }
       }
+
+      renderer.render(scene, camera);
     };
     animate();
     return () => cancelAnimationFrame(animFrameRef.current);
@@ -247,9 +264,8 @@ export default function CubeRenderer({ model, onRotate }: Props) {
   }, [model.rotation, onRotate]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ width: '100%', height: '100%', display: 'block', cursor: 'grab' }}
-    />
+    <div ref={containerRef} style={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
+      <canvas ref={canvasRef} style={{ display: 'block', cursor: 'grab' }} />
+    </div>
   );
 }
