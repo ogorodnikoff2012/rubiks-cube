@@ -1,34 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import * as THREE from 'three';
-import { AnimationService } from './animation/AnimationService';
-import { EasedAnimation } from './animation/EasedAnimation';
-import { MoveAnimation } from './animation/MoveAnimation';
-import { RotationAnimation } from './animation/RotationAnimation';
-import { easeInOutCubic } from './animation/easing';
+import { useEffect, useState } from 'react';
 import CubeRenderer from './components/CubeRenderer';
 import SolverPanel from './components/SolverPanel';
 import { solveLayerByLayer } from './solver/layerByLayer';
-import { createSolvedCube } from './model/cube';
-import {
-  ALL_MOVES,
-  INVERSE_MOVE,
-  MOVE_PAIRS,
-  MOVE_SPECS,
-  applyMoveToModel,
-  getAffectedIndices,
-} from './model/moves';
+import { ALL_MOVES } from './model/moves';
 import type { MoveId } from './model/moves';
-import type { CubeModel } from './types/cube';
+import { useCubeQueue } from './hooks/useCubeQueue';
+import type { CubeAction } from './hooks/useCubeQueue';
 
-const MOVE_DURATION_MS = 320;
-const RESET_DURATION_MS = 700;
 const SCRAMBLE_MOVES = 50;
-
-/**
- * Initial cube orientation: front face prominent, top and right faces visible.
- * ~30° around Y (show right), ~−20° around X (tilt top toward viewer).
- */
-const INITIAL_ROTATION = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.35, -0.52, 0));
 
 /**
  * Keyboard → MoveId mapping.
@@ -98,243 +77,72 @@ function MovePair({ cw, ccw, onMove }: MovePairProps) {
 // --------------------------------------------------------------------------
 
 export default function App() {
-  const [cube, setCube] = useState<CubeModel>(() => ({
-    ...createSolvedCube(),
-    rotation: INITIAL_ROTATION.clone(),
-  }));
+  const queue = useCubeQueue();
 
-  // ── Animation state ──────────────────────────────────────────────────────
-  // isAnimating: a move animation is currently in flight.
-  // queueLength: moves waiting behind the current one.
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [queueLength, setQueueLength] = useState(0);
-  const isBusy = isAnimating || queueLength > 0;
+  const canUndo = queue.historyIndex > 0 && !queue.isBusy;
+  const canRedo = queue.historyIndex < queue.totalMoves && !queue.isBusy;
 
   // ── Solver panel ─────────────────────────────────────────────────────────
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [solverLog, setSolverLog] = useState<string[]>([]);
 
-  // ── History ──────────────────────────────────────────────────────────────
-  const [moves, setMoves] = useState<MoveId[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(0);
-  const canUndo = historyIndex > 0 && !isBusy;
-  const canRedo = historyIndex < moves.length && !isBusy;
+  // ── Move helpers ──────────────────────────────────────────────────────────
+  const move = (id: MoveId) => queue.dispatch({ kind: 'move', move: id });
 
-  // ── Refs ─────────────────────────────────────────────────────────────────
-  const animService = useRef(new AnimationService());
-  const cubeRef = useRef(cube);
-  cubeRef.current = cube;
+  const handleUndo = () => {
+    if (!canUndo) return;
+    queue.dispatch({ kind: 'undo' });
+  };
 
-  // Mutable queue — accessed synchronously inside animation callbacks.
-  // onCommit is called after the move commits; used by executeMove() promises.
-  const moveQueueRef = useRef<{ move: MoveId; onCommit?: () => void }[]>([]);
-  // True while any move is in-flight or enqueued; prevents re-truncating the
-  // redo stack mid-batch and avoids spurious drain starts.
-  const isProcessingRef = useRef(false);
-  // Snapshot of historyIndex readable synchronously (state lags one render).
-  const historyIndexRef = useRef(historyIndex);
-  historyIndexRef.current = historyIndex;
-  // The fully-committed cube state, kept one step ahead of React's cube state.
-  // React's setCube is async; by the time drainQueue starts the next animation,
-  // cubeRef.current still holds the pre-commit state.  committedModelRef is
-  // updated synchronously in each move's onComplete, so getAffectedIndices
-  // always sees the correct block positions for the upcoming move.
-  const committedModelRef = useRef(cube);
-  // Only sync blocks/faceColors changes — rotation changes don't affect moves.
-  if (!isProcessingRef.current) committedModelRef.current = cube;
+  const handleRedo = () => {
+    if (!canRedo) return;
+    queue.dispatch({ kind: 'redo' });
+  };
 
-  // isBusy snapshot for keydown handler (avoids re-registering every render).
-  const isBusyRef = useRef(isBusy);
-  isBusyRef.current = isBusy;
-
-  // ── Lifecycle ─────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const service = animService.current;
-    service.start();
-    return () => service.stop();
-  }, []);
-
-  // ── Core animation helper ─────────────────────────────────────────────────
-  /**
-   * Submit one move animation.
-   * `currentModel` is the committed cube state to animate FROM (used to derive
-   * affected block indices and to compute the post-move model).
-   * `onDone` is called with the new committed model once the animation ends.
-   */
-  const runMoveAnimation = useCallback(
-    (move: MoveId, currentModel: CubeModel, onDone: (committed: CubeModel) => void) => {
-      const { axis, angle } = MOVE_SPECS[move];
-      const targetRotation = new THREE.Quaternion().setFromAxisAngle(axis, angle);
-      // Compute both the affected indices AND the final committed model eagerly,
-      // before the animation starts.  This avoids reading stale React state later.
-      const affectedIndices = getAffectedIndices(currentModel.blocks, move);
-      const committedModel = applyMoveToModel(currentModel, move);
-
-      animService.current.submit(
-        new EasedAnimation(
-          new MoveAnimation(affectedIndices, targetRotation, setCube, committedModel, onDone),
-          easeInOutCubic,
-        ),
-        MOVE_DURATION_MS,
-      );
-    },
-    [],
-  );
-
-  // ── Queue drain ───────────────────────────────────────────────────────────
-  /**
-   * Pop the next move from the queue and animate it.
-   * `recordMove` is called after each move commits so the caller decides
-   * how to update history (forward move vs undo vs redo).
-   */
-  const drainQueue = useCallback(
-    (recordMove: (m: MoveId) => void) => {
-      if (moveQueueRef.current.length === 0) {
-        isProcessingRef.current = false;
-        setIsAnimating(false);
-        return;
-      }
-
-      const [{ move, onCommit }, ...rest] = moveQueueRef.current;
-      moveQueueRef.current = rest;
-      setQueueLength(rest.length);
-      setIsAnimating(true);
-
-      runMoveAnimation(move, committedModelRef.current, (committed) => {
-        committedModelRef.current = committed;
-        recordMove(move);
-        onCommit?.();
-        drainQueue(recordMove);
-      });
-    },
-    [runMoveAnimation],
-  );
-
-  // ── Public move handlers ──────────────────────────────────────────────────
-  const handleMove = useCallback(
-    (move: MoveId) => {
-      moveQueueRef.current = [...moveQueueRef.current, { move }];
-      setQueueLength(moveQueueRef.current.length);
-
-      if (!isProcessingRef.current) {
-        isProcessingRef.current = true;
-        // Truncate redo stack once at the start of each new forward batch.
-        const idx = historyIndexRef.current;
-        setMoves((prev) => prev.slice(0, idx));
-        drainQueue((m) => {
-          setMoves((prev) => [...prev, m]);
-          setHistoryIndex((i) => i + 1);
-        });
-      }
-    },
-    [drainQueue],
-  );
-
-  /**
-   * Like handleMove but returns a Promise that resolves when the move commits.
-   * Used by the solver to sequence moves and log them one at a time.
-   */
-  const executeMove = useCallback(
-    (move: MoveId): Promise<void> =>
-      new Promise((resolve) => {
-        moveQueueRef.current = [...moveQueueRef.current, { move, onCommit: resolve }];
-        setQueueLength(moveQueueRef.current.length);
-        if (!isProcessingRef.current) {
-          isProcessingRef.current = true;
-          const idx = historyIndexRef.current;
-          setMoves((prev) => prev.slice(0, idx));
-          drainQueue((m) => {
-            setMoves((prev) => [...prev, m]);
-            setHistoryIndex((i) => i + 1);
-          });
-        }
-      }),
-    [drainQueue],
-  );
-
-  const handleSolve = useCallback(async () => {
-    setIsPanelOpen(true);
-    setSolverLog([]);
-    const steps = solveLayerByLayer(committedModelRef.current);
-    for (const { label, moves: stepMoves } of steps) {
-      setSolverLog((prev) => [...prev, label]);
-      if (stepMoves.length === 0) {
-        setSolverLog((prev) => [...prev, '  (already correct)']);
-      } else {
-        for (const move of stepMoves) {
-          await executeMove(move);
-          setSolverLog((prev) => [...prev, `  ${move}`]);
-        }
-      }
-    }
-    setSolverLog((prev) => [...prev, '', 'Done.']);
-  }, [executeMove]);
-
-  const handleUndo = useCallback(() => {
-    if (historyIndex === 0 || isBusy) return;
-    const move = moves[historyIndex - 1];
-    isProcessingRef.current = true;
-    setIsAnimating(true);
-    runMoveAnimation(INVERSE_MOVE[move], committedModelRef.current, (committed) => {
-      committedModelRef.current = committed;
-      setIsAnimating(false);
-      isProcessingRef.current = false;
-      setHistoryIndex((i) => i - 1);
-    });
-  }, [runMoveAnimation, moves, historyIndex, isBusy]);
-
-  const handleRedo = useCallback(() => {
-    if (historyIndex >= moves.length || isBusy) return;
-    const move = moves[historyIndex];
-    isProcessingRef.current = true;
-    setIsAnimating(true);
-    runMoveAnimation(move, committedModelRef.current, (committed) => {
-      committedModelRef.current = committed;
-      setIsAnimating(false);
-      isProcessingRef.current = false;
-      setHistoryIndex((i) => i + 1);
-    });
-  }, [runMoveAnimation, moves, historyIndex, isBusy]);
-
-  // ── Camera rotation ───────────────────────────────────────────────────────
-  const handleRotate = useCallback((q: THREE.Quaternion) => {
-    setCube((prev) => ({ ...prev, rotation: q }));
-  }, []);
-
-  const handleReset = useCallback(() => {
-    const from = cubeRef.current.rotation.clone();
-    animService.current.submit(
-      new EasedAnimation(
-        new RotationAnimation(from, INITIAL_ROTATION.clone(), (q) => {
-          setCube((p) => ({ ...p, rotation: q }));
-        }),
-        easeInOutCubic,
-      ),
-      RESET_DURATION_MS,
-    );
-  }, []);
-
-  const handleScramble = useCallback(() => {
+  const handleScramble = () => {
+    const actions: CubeAction[] = [];
     let lastFace: string | null = null;
     for (let i = 0; i < SCRAMBLE_MOVES; i++) {
       const pool = ALL_MOVES.filter((m) => m.replace("'", '') !== lastFace);
-      const move = pool[Math.floor(Math.random() * pool.length)];
-      lastFace = move.replace("'", '');
-      handleMove(move);
+      const scrambleMove = pool[Math.floor(Math.random() * pool.length)];
+      lastFace = scrambleMove.replace("'", '');
+      actions.push({ kind: 'move', move: scrambleMove });
     }
-  }, [handleMove]);
+    queue.dispatch(...actions);
+  };
 
-  const handleResetCube = useCallback(() => {
-    moveQueueRef.current = [];
-    isProcessingRef.current = false;
-    const solved = { ...createSolvedCube(), rotation: INITIAL_ROTATION.clone() };
-    committedModelRef.current = solved;
-    setCube(solved);
-    setMoves([]);
-    setHistoryIndex(0);
-    setQueueLength(0);
-    setIsAnimating(false);
-  }, []);
+  const handleSolve = () => {
+    setIsPanelOpen(true);
+    setSolverLog([]);
+
+    const steps = solveLayerByLayer(queue.getCommittedCube());
+    const actions: CubeAction[] = [];
+
+    for (const { label, moves: stepMoves } of steps) {
+      // Capture label in closure for the effect.
+      const capturedLabel = label;
+      actions.push({ kind: 'effect', fn: () => setSolverLog((prev) => [...prev, capturedLabel]) });
+
+      if (stepMoves.length === 0) {
+        actions.push({
+          kind: 'effect',
+          fn: () => setSolverLog((prev) => [...prev, '  (already correct)']),
+        });
+      } else {
+        for (const stepMove of stepMoves) {
+          actions.push({ kind: 'move', move: stepMove });
+          const capturedMove = stepMove;
+          actions.push({
+            kind: 'effect',
+            fn: () => setSolverLog((prev) => [...prev, `  ${capturedMove}`]),
+          });
+        }
+      }
+    }
+
+    actions.push({ kind: 'effect', fn: () => setSolverLog((prev) => [...prev, '', 'Done.']) });
+    queue.dispatch(...actions);
+  };
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
@@ -343,19 +151,13 @@ export default function App() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
       if (e.ctrlKey || e.metaKey) {
-        // Undo / redo are blocked while busy.
-        if (isBusyRef.current) return;
+        if (queue.isBusy) return; // undo / redo blocked while busy
         if (e.key === 'z' && !e.shiftKey) {
           e.preventDefault();
           handleUndo();
           return;
         }
-        if (e.key === 'z' && e.shiftKey) {
-          e.preventDefault();
-          handleRedo();
-          return;
-        }
-        if (e.key === 'y') {
+        if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
           e.preventDefault();
           handleRedo();
           return;
@@ -364,21 +166,21 @@ export default function App() {
       }
 
       if (e.key === 'Escape') {
-        moveQueueRef.current = [];
-        setQueueLength(0);
+        queue.cancel();
         return;
       }
 
-      // Move keys are always accepted — they get enqueued if busy.
-      const move = HOTKEYS[e.key];
-      if (move) {
+      // Move keys are always accepted (enqueued if busy).
+      const hotkey = HOTKEYS[e.key];
+      if (hotkey) {
         e.preventDefault();
-        handleMove(move);
+        move(hotkey);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [handleMove, handleUndo, handleRedo]);
+    // Re-register whenever queue state changes (isBusy, canUndo, canRedo).
+  }, [queue.isBusy, canUndo, canRedo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -396,8 +198,8 @@ export default function App() {
           Rubik&rsquo;s Cube
         </h1>
         <span style={{ fontSize: '0.8rem', color: '#8899aa', fontFamily: 'monospace' }}>
-          {historyIndex}/{moves.length}
-          {queueLength > 0 && ` +${queueLength}`}
+          {queue.historyIndex}/{queue.totalMoves}
+          {queue.pendingCount > 0 && ` +${queue.pendingCount}`}
         </span>
         <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>
           ↩ Undo
@@ -408,18 +210,18 @@ export default function App() {
         <button onClick={handleScramble} style={resetBtnStyle}>
           Scramble
         </button>
-        <button onClick={handleSolve} disabled={isBusy} style={resetBtnStyle}>
+        <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>
           Solve
         </button>
-        <button onClick={handleResetCube} style={resetBtnStyle}>
+        <button onClick={queue.resetCube} style={resetBtnStyle}>
           Reset
         </button>
-        <button onClick={handleReset} style={resetBtnStyle}>
+        <button onClick={queue.resetRotation} style={resetBtnStyle}>
           Reset rotation
         </button>
         <span style={dividerStyle} />
         {(['x', "x'", 'y', "y'", 'z', "z'"] as const).map((id) => (
-          <button key={id} onClick={() => handleMove(id)} style={cubeTurnBtnStyle}>
+          <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>
             {id}
           </button>
         ))}
@@ -434,28 +236,28 @@ export default function App() {
           {/* Row 1 */}
           <div />
           <div style={centreSlot}>
-            <MovePair cw="U" ccw="U'" onMove={handleMove} />
+            <MovePair cw="U" ccw="U'" onMove={move} />
           </div>
           <div />
 
           {/* Row 2 */}
           <div style={centreSlot}>
-            <MovePair cw="L" ccw="L'" onMove={handleMove} />
+            <MovePair cw="L" ccw="L'" onMove={move} />
           </div>
-          <CubeRenderer model={cube} onRotate={handleRotate} />
+          <CubeRenderer model={queue.cube} onRotate={queue.rotate} />
           <div style={centreSlot}>
-            <MovePair cw="R" ccw="R'" onMove={handleMove} />
+            <MovePair cw="R" ccw="R'" onMove={move} />
           </div>
 
           {/* Row 3 – F bottom-left, D centre, B bottom-right */}
           <div style={centreSlot}>
-            <MovePair cw="F" ccw="F'" onMove={handleMove} />
+            <MovePair cw="F" ccw="F'" onMove={move} />
           </div>
           <div style={centreSlot}>
-            <MovePair cw="D" ccw="D'" onMove={handleMove} />
+            <MovePair cw="D" ccw="D'" onMove={move} />
           </div>
           <div style={centreSlot}>
-            <MovePair cw="B" ccw="B'" onMove={handleMove} />
+            <MovePair cw="B" ccw="B'" onMove={move} />
           </div>
         </main>
 
@@ -552,6 +354,3 @@ const dividerStyle: React.CSSProperties = {
   background: '#1e2e4a',
   margin: '0 4px',
 };
-
-// Suppress unused-variable warning for MOVE_PAIRS (exported for potential future use).
-void MOVE_PAIRS;
