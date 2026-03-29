@@ -7,7 +7,7 @@ import {
 } from '../model/moves';
 import type { MoveId } from '../model/moves';
 import type { CubeModel, FaceKey } from '../types/cube';
-import { findCenter, findEdge } from '../model/pieces';
+import { findCenter, findCorner, findEdge } from '../model/pieces';
 
 export interface SolverStep {
   label: string;
@@ -130,6 +130,76 @@ function step1WhiteCross(cube: CubeModel): MoveId[] {
   return optimizeMoves(result);
 }
 
+function step2WhiteCorners(cube: CubeModel): MoveId[] {
+  const result: MoveId[] = [];
+  const addMove = (...moves: MoveId[]) => {
+    for (const m of moves) {
+      result.push(m);
+      cube = applyMoveToModel(cube, m);
+      if (result.length >= 1000) {
+        throw new Error('Internal error, infinite loop');
+      }
+    }
+  };
+
+  const shiftToFace: FaceKey[] = ['F', 'R', 'B', 'L'];
+  const faceToShift: Partial<Record<FaceKey, number>> = Object.fromEntries(
+    shiftToFace.map((face, shift) => [face, shift]),
+  );
+
+  for (let i = 0; i < shiftToFace.length; ++i) {
+    const frontColor = SOLVED_COLORS[shiftToFace[i]];
+    const rightColor = SOLVED_COLORS[shiftToFace[(i + 1) % shiftToFace.length]];
+
+    while (true) {
+      const loc = findCorner(cube, SOLVED_COLORS.U, frontColor, rightColor);
+
+      if (loc[0] === 'U' && loc[1] === 'F' && loc[2] === 'R') {
+        break;
+      }
+
+      if (loc[0] === 'U') {
+        addMove(loc[1], 'D', INVERSE_MOVE[loc[1]]);
+        continue;
+      }
+
+      if (loc[0] === 'D') {
+        const shift = ensure(faceToShift[loc[1]]);
+        addMove(...repeatMove("D'", shift));
+        addMove("R'", "D", "R");
+        continue;
+      }
+
+      if (loc[1] === 'U') {
+        addMove(INVERSE_MOVE[loc[0]], "D'", loc[0]);
+        continue;
+      }
+      if (loc[2] === 'U') {
+        addMove(loc[0], "D", INVERSE_MOVE[loc[0]]);
+        continue;
+      }
+      if (loc[1] === 'D') {
+        const shift = ensure(faceToShift[loc[2]]);
+        addMove(...repeatMove("D'", shift));
+        addMove("R'", "D", "R");
+        continue;
+      }
+      if (loc[2] === 'D') {
+        const shift = ensure(faceToShift[loc[1]]);
+        addMove(...repeatMove("D'", shift));
+        addMove("D", "F", "D'", "F'");
+        continue;
+      }
+
+      throw new Error(`Unexpected location: [${loc[0]} ${loc[1]} ${loc[2]}]`);
+    }
+
+    addMove("y'");
+  }
+
+  return optimizeMoves(result);
+}
+
 // --------------------------------------------------------------------------
 // Public API
 // --------------------------------------------------------------------------
@@ -138,16 +208,24 @@ export function solveLayerByLayer(cube: CubeModel): SolverStep[] {
   const steps: [string, (cube: CubeModel) => MoveId[]][] = [
     ['Step 0: Cube Orientation', step0Orientation],
     ['Step 1: White Cross', step1WhiteCross],
+    ['Step 2: White Corners', step2WhiteCorners],
   ];
 
   const result: SolverStep[] = [];
 
-  for (const [label, fn] of steps) {
-    const moves = fn(cube);
-    result.push({ label, moves });
-    for (const move of moves) {
-      cube = applyMoveToModel(cube, move);
+  try {
+    for (const [label, fn] of steps) {
+      const moves = fn(cube);
+      result.push({ label, moves });
+      for (const move of moves) {
+        cube = applyMoveToModel(cube, move);
+      }
     }
+  } catch (e) {
+    result.push({
+      label: "Failed to solve the cube: " + e,
+      moves: [],
+    });
   }
 
   return result;
