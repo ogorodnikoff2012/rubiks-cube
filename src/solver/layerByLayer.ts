@@ -32,6 +32,25 @@ function makeBitset(...flags: boolean[]): number {
   return result;
 }
 
+function areCyclicShifts(lhs: number[], rhs: number[]): number {
+  if (lhs.length !== rhs.length) {
+    return -1;
+  }
+  for (let shift = 0; shift < lhs.length; ++shift) {
+    let match = true;
+    for (let i = 0; i < lhs.length; ++i) {
+      if (lhs[(i + shift) % lhs.length] !== rhs[i]) {
+        match = false;
+        break;
+      }
+    }
+    if (match) {
+      return shift;
+    }
+  }
+  return -1;
+}
+
 // --------------------------------------------------------------------------
 // Step 0 — Cube Orientation
 // --------------------------------------------------------------------------
@@ -334,6 +353,61 @@ function step4YellowCross(cube: CubeModel): MoveId[] {
   return optimizeMoves(result);
 }
 
+function step5OrderedYellowCross(cube: CubeModel): MoveId[] {
+  const algorithm: MoveId[] = ["R", "U", "R'", "U", "R", "U", "U", "R'", "U"];
+
+  const shiftToFace: FaceKey[] = ['F', 'R', 'B', 'L'];
+
+  const expectedColors: string[] = [];
+  const actualColors: string[] = [];
+
+  for (const face of shiftToFace) {
+    const faceColors = getFaceColors(cube, face, 'U');
+    expectedColors.push(faceColors[1][1]);
+    actualColors.push(faceColors[0][1]);
+  }
+
+  const actualToExpected = actualColors.map((color) => expectedColors.indexOf(color));
+
+  {
+    const shift = areCyclicShifts(actualToExpected, [0, 1, 2, 3]);
+    if (shift >= 0) {
+      return repeatMove("U", shift);
+    }
+  }
+
+  for (let i = 0; i < 4; ++i) {
+    const canonical = [0, 1, 2, 3];
+    [canonical[i], canonical[(i + 3) % 4]] = [canonical[(i + 3) % 4], canonical[i]];
+
+    const shift = areCyclicShifts(actualToExpected, canonical);
+
+    if (shift >= 0) {
+      return optimizeMoves([
+        ...repeatMove("U", shift),
+        ...repeatMove("y'", i),
+        ...algorithm,
+        ...repeatMove("y'", 4 - i),
+      ]);
+    }
+  }
+
+  {
+    const shift = areCyclicShifts(actualToExpected, [3, 2, 1, 0]);
+    if (shift >= 0) {
+      return optimizeMoves([
+        ...repeatMove("U", shift),
+        ...algorithm,
+        ...repeatMove("y'", 2),
+        ...algorithm,
+        ...repeatMove("y'", 2),
+      ]);
+    }
+  }
+
+  throw new Error(`Unexpected colors: [${actualColors.join(',')}]`)
+}
+
 // --------------------------------------------------------------------------
 // Public API
 // --------------------------------------------------------------------------
@@ -345,6 +419,7 @@ export function solveLayerByLayer(cube: CubeModel): SolverStep[] {
     ['Step 2: White Corners', step2WhiteCorners],
     ['Step 3: Middle Layer', step3MiddleLayer],
     ['Step 4: Yellow Cross', step4YellowCross],
+    ['Step 5: Ordered Yellow Cross', step5OrderedYellowCross],
   ];
 
   const result: SolverStep[] = [];
