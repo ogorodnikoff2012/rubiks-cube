@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { AnimationService } from '../animation/AnimationService';
+import type { AnimationService } from '../animation/AnimationService';
 import { EasedAnimation } from '../animation/EasedAnimation';
 import { MoveAnimation } from '../animation/MoveAnimation';
-import { RotationAnimation } from '../animation/RotationAnimation';
 import { easeInOutCubic } from '../animation/easing';
 import { createSolvedCube } from '../model/cube';
 import { INVERSE_MOVE, MOVE_SPECS, applyMoveToModel, getAffectedIndices } from '../model/moves';
@@ -14,12 +13,7 @@ import type { CubeModel } from '../types/cube';
 // Constants
 // --------------------------------------------------------------------------
 
-export const INITIAL_ROTATION = new THREE.Quaternion().setFromEuler(
-  new THREE.Euler(0.35, -0.52, 0),
-);
-
 const MOVE_DURATION_MS = 320;
-const RESET_DURATION_MS = 700;
 
 // --------------------------------------------------------------------------
 // Action type
@@ -65,10 +59,6 @@ export interface CubeQueue {
   dispatch: (...actions: CubeAction[]) => void;
   /** Drop all pending (not yet started) queue items. */
   cancel: () => void;
-  /** Immediately update the whole-cube drag rotation (not history-tracked). */
-  rotate: (q: THREE.Quaternion) => void;
-  /** Animate the cube's visual rotation back to the initial orientation. */
-  resetRotation: () => void;
   /** Reset cube to solved state and clear all history and the queue. */
   resetCube: () => void;
   /**
@@ -83,26 +73,15 @@ export interface CubeQueue {
 // Hook
 // --------------------------------------------------------------------------
 
-export function useCubeQueue(): CubeQueue {
+export function useCubeQueue(animService: AnimationService): CubeQueue {
   // ── Visible React state ───────────────────────────────────────────────────
-  const [cube, setCube] = useState<CubeModel>(() => ({
-    ...createSolvedCube(),
-    rotation: INITIAL_ROTATION.clone(),
-  }));
+  const [cube, setCube] = useState<CubeModel>(createSolvedCube);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [totalMoves, setTotalMoves] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
 
   const isBusy = isAnimating || pendingCount > 0;
-
-  // ── Animation service lifecycle ───────────────────────────────────────────
-  const animServiceRef = useRef(new AnimationService());
-  useEffect(() => {
-    const svc = animServiceRef.current;
-    svc.start();
-    return () => svc.stop();
-  }, []);
 
   // ── Committed state (synchronous — always one render ahead) ───────────────
   //
@@ -121,9 +100,6 @@ export function useCubeQueue(): CubeQueue {
   //
   // generationRef     — bumped by resetCube(); lets animation callbacks detect
   //   that a reset happened mid-flight and silently discard their results.
-
-  const cubeRef = useRef(cube); // always mirrors cube (for resetRotation)
-  cubeRef.current = cube;
 
   const histRef = useRef<{ moves: MoveId[]; index: number }>({ moves: [], index: 0 });
   const queueRef = useRef<CubeAction[]>([]);
@@ -161,7 +137,7 @@ export function useCubeQueue(): CubeQueue {
         if (generationRef.current === gen) setCube(fn);
       };
 
-      animServiceRef.current.submit(
+      animService.submit(
         new EasedAnimation(
           new MoveAnimation(affectedIndices, targetRotation, guardedSetCube, committedModel, (c) => {
             if (generationRef.current === gen) onDone(c);
@@ -281,25 +257,6 @@ export function useCubeQueue(): CubeQueue {
     setPendingCount(0);
   }, []);
 
-  const rotate = useCallback((q: THREE.Quaternion) => {
-    setCube((prev) => ({ ...prev, rotation: q }));
-  }, []);
-
-  const resetRotation = useCallback(() => {
-    // cubeRef always mirrors the latest cube state including drag rotation,
-    // so we always animate from the correct current orientation.
-    const from = cubeRef.current.rotation.clone();
-    animServiceRef.current.submit(
-      new EasedAnimation(
-        new RotationAnimation(from, INITIAL_ROTATION.clone(), (q) => {
-          setCube((p) => ({ ...p, rotation: q }));
-        }),
-        easeInOutCubic,
-      ),
-      RESET_DURATION_MS,
-    );
-  }, []);
-
   const resetCube = useCallback(() => {
     // Increment generation first so that any in-flight animation callbacks
     // detect the reset and become no-ops (guarded in runMoveAnimation).
@@ -307,13 +264,13 @@ export function useCubeQueue(): CubeQueue {
     // Stop the service: this synchronously calls onEnd() on all live
     // animations.  Because of the generation guard, none of them will
     // update committed state or advance the drain loop.
-    animServiceRef.current.stop();
-    animServiceRef.current.start();
+    animService.stop();
+    animService.start();
 
     queueRef.current = [];
     isProcessingRef.current = false;
     histRef.current = { moves: [], index: 0 };
-    const solved = { ...createSolvedCube(), rotation: INITIAL_ROTATION.clone() };
+    const solved = createSolvedCube();
     committedCubeRef.current = solved;
     setCube(solved);
     setHistoryIndex(0);
@@ -332,8 +289,6 @@ export function useCubeQueue(): CubeQueue {
     isBusy,
     dispatch,
     cancel,
-    rotate,
-    resetRotation,
     resetCube,
     getCommittedCube,
   };

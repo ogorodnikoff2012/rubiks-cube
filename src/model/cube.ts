@@ -1,4 +1,3 @@
-import * as THREE from 'three';
 import type { Block, CubeModel, FaceColors, FaceKey } from '../types/cube';
 
 /**
@@ -118,8 +117,5 @@ export function createSolvedCube(): CubeModel {
     }
   }
 
-  return {
-    blocks,
-    rotation: new THREE.Quaternion(),
-  };
+  return { blocks };
 }

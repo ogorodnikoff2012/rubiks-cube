@@ -96,9 +96,6 @@ function buildCubeGroup(model: CubeModel): THREE.Group {
     group.add(cubieGroup);
   }
 
-  // Apply cube-level rotation
-  group.quaternion.copy(model.rotation);
-
   return group;
 }
 
@@ -118,10 +115,11 @@ interface DragState {
 
 interface Props {
   model: CubeModel;
+  rotation: THREE.Quaternion;
   onRotate: (q: THREE.Quaternion) => void;
 }
 
-export default function CubeRenderer({ model, onRotate }: Props) {
+export default function CubeRenderer({ model, rotation, onRotate }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -132,6 +130,10 @@ export default function CubeRenderer({ model, onRotate }: Props) {
   const cubeGroupRef = useRef<THREE.Group | null>(null);
   const animFrameRef = useRef<number>(0);
   const dragRef = useRef<DragState>({ active: false, lastX: 0, lastY: 0 });
+  // Ref always mirrors the rotation prop so event handlers and the rebuild
+  // effect can read the current value without declaring it as a dependency.
+  const rotationRef = useRef(rotation);
+  rotationRef.current = rotation;
 
   // ── Initialize renderer, scene, camera once ──────────────────────────────
   useEffect(() => {
@@ -161,13 +163,20 @@ export default function CubeRenderer({ model, onRotate }: Props) {
     const scene = sceneRef.current;
     if (!scene) return;
 
-    // Remove old group
     if (cubeGroupRef.current) scene.remove(cubeGroupRef.current);
 
     const group = buildCubeGroup(model);
+    // Apply the current rotation from ref — avoids adding rotation to deps
+    // (which would trigger a full rebuild on every mouse-drag frame).
+    group.quaternion.copy(rotationRef.current);
     scene.add(group);
     cubeGroupRef.current = group;
   }, [model]);
+
+  // ── Update cube orientation when rotation prop changes ───────────────────
+  useEffect(() => {
+    cubeGroupRef.current?.quaternion.copy(rotation);
+  }, [rotation]);
 
   // ── Render loop ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -244,7 +253,7 @@ export default function CubeRenderer({ model, onRotate }: Props) {
       const delta = qY.multiply(qX);
 
       // Compose: new = delta * current  (world-space rotation)
-      const next = delta.multiply(model.rotation.clone());
+      const next = delta.multiply(rotationRef.current.clone());
       onRotate(next);
     };
 
@@ -261,7 +270,7 @@ export default function CubeRenderer({ model, onRotate }: Props) {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, [model.rotation, onRotate]);
+  }, [onRotate]);
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>

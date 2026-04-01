@@ -42,9 +42,7 @@ export class MoveAnimation implements IAnimation {
   }
 
   onEnd(): void {
-    // Commit the precomputed blocks.  Take rotation from prev so that a
-    // concurrent RotationAnimation (reset / mouse drag) is never overwritten.
-    this.setCube((prev) => ({ ...this.committedModel, rotation: prev.rotation }));
+    this.setCube(() => this.committedModel);
     this.onComplete(this.committedModel);
   }
 }

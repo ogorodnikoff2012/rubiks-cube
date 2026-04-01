@@ -20,6 +20,4 @@ export interface Block {
 export interface CubeModel {
   /** All 26 visible cubies (corners + edges + centers, excluding core). */
   blocks: Block[];
-  /** Current rotation applied to the entire cube group. */
-  rotation: THREE.Quaternion;
 }

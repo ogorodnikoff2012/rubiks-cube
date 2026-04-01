@@ -1,6 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import * as THREE from 'three';
 import CubeRenderer from './components/CubeRenderer';
 import SolverPanel from './components/SolverPanel';
+import { AnimationService } from './animation/AnimationService';
+import { EasedAnimation } from './animation/EasedAnimation';
+import { RotationAnimation } from './animation/RotationAnimation';
+import { easeInOutCubic } from './animation/easing';
 import { solveLayerByLayer } from './solver/layerByLayer';
 import { ALL_MOVES } from './model/moves';
 import type { MoveId } from './model/moves';
@@ -8,6 +13,9 @@ import { useCubeQueue } from './hooks/useCubeQueue';
 import type { CubeAction } from './hooks/useCubeQueue';
 
 const SCRAMBLE_MOVES = 50;
+
+const INITIAL_ROTATION = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.35, -0.52, 0));
+const RESET_ROTATION_MS = 700;
 
 /**
  * Keyboard → MoveId mapping.
@@ -77,7 +85,29 @@ function MovePair({ cw, ccw, onMove }: MovePairProps) {
 // --------------------------------------------------------------------------
 
 export default function App() {
-  const queue = useCubeQueue();
+  // ── Animation service ─────────────────────────────────────────────────────
+  const animService = useRef(new AnimationService()).current;
+  useEffect(() => {
+    animService.start();
+    return () => animService.stop();
+  }, [animService]);
+
+  const queue = useCubeQueue(animService);
+
+  // ── Whole-cube visual rotation (renderer-only, not part of CubeModel) ─────
+  const [rotation, setRotation] = useState(() => INITIAL_ROTATION.clone());
+  const rotationRef = useRef(rotation);
+  rotationRef.current = rotation;
+
+  const handleResetRotation = useCallback(() => {
+    animService.submit(
+      new EasedAnimation(
+        new RotationAnimation(rotationRef.current.clone(), INITIAL_ROTATION.clone(), setRotation),
+        easeInOutCubic,
+      ),
+      RESET_ROTATION_MS,
+    );
+  }, [animService]);
 
   const canUndo = queue.historyIndex > 0 && !queue.isBusy;
   const canRedo = queue.historyIndex < queue.totalMoves && !queue.isBusy;
@@ -216,7 +246,7 @@ export default function App() {
         <button onClick={queue.resetCube} style={resetBtnStyle}>
           Reset
         </button>
-        <button onClick={queue.resetRotation} style={resetBtnStyle}>
+        <button onClick={handleResetRotation} style={resetBtnStyle}>
           Reset rotation
         </button>
         <span style={dividerStyle} />
@@ -244,7 +274,7 @@ export default function App() {
           <div style={centreSlot}>
             <MovePair cw="L" ccw="L'" onMove={move} />
           </div>
-          <CubeRenderer model={queue.cube} onRotate={queue.rotate} />
+          <CubeRenderer model={queue.cube} rotation={rotation} onRotate={setRotation} />
           <div style={centreSlot}>
             <MovePair cw="R" ccw="R'" onMove={move} />
           </div>
