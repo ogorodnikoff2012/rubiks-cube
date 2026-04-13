@@ -117,7 +117,7 @@ function step1WhiteCross(cube: CubeModel): MoveId[] {
         break;
       }
 
-      if (loc[0] == 'U') {
+      if (loc[0] === 'U') {
         const shift = ensure(faceToShift[loc[1]]);
         addMove(...repeatMove("U", shift));
         addMove("F");
