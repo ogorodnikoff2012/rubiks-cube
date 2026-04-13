@@ -93,6 +93,7 @@ export default function App() {
   }, [animService]);
 
   const queue = useCubeQueue(animService);
+  const { dispatch, cancel, isBusy } = queue;
 
   // ── Whole-cube visual rotation (renderer-only, not part of CubeModel) ─────
   //
@@ -116,25 +117,25 @@ export default function App() {
     );
   }, [animService]);
 
-  const canUndo = queue.historyIndex > 0 && !queue.isBusy;
-  const canRedo = queue.historyIndex < queue.totalMoves && !queue.isBusy;
+  const canUndo = queue.historyIndex > 0 && !isBusy;
+  const canRedo = queue.historyIndex < queue.totalMoves && !isBusy;
 
   // ── Solver panel ─────────────────────────────────────────────────────────
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [solverLog, setSolverLog] = useState<string[]>([]);
 
   // ── Move helpers ──────────────────────────────────────────────────────────
-  const move = useCallback((id: MoveId) => queue.dispatch({ kind: 'move', move: id }), [queue.dispatch]);
+  const move = useCallback((id: MoveId) => dispatch({ kind: 'move', move: id }), [dispatch]);
 
   const handleUndo = useCallback(() => {
     if (!canUndo) return;
-    queue.dispatch({ kind: 'undo' });
-  }, [canUndo, queue.dispatch]);
+    dispatch({ kind: 'undo' });
+  }, [canUndo, dispatch]);
 
   const handleRedo = useCallback(() => {
     if (!canRedo) return;
-    queue.dispatch({ kind: 'redo' });
-  }, [canRedo, queue.dispatch]);
+    dispatch({ kind: 'redo' });
+  }, [canRedo, dispatch]);
 
   const handleScramble = () => {
     const actions: CubeAction[] = [];
@@ -188,7 +189,7 @@ export default function App() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
       if (e.ctrlKey || e.metaKey) {
-        if (queue.isBusy) return; // undo / redo blocked while busy
+        if (isBusy) return; // undo / redo blocked while busy
         if (e.key === 'z' && !e.shiftKey) {
           e.preventDefault();
           handleUndo();
@@ -203,7 +204,7 @@ export default function App() {
       }
 
       if (e.key === 'Escape') {
-        queue.cancel();
+        cancel();
         return;
       }
 
@@ -216,7 +217,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [move, handleUndo, handleRedo, queue.cancel, queue.isBusy]);
+  }, [move, handleUndo, handleRedo, cancel, isBusy]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

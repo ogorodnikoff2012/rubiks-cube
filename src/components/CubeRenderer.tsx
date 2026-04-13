@@ -54,18 +54,18 @@ function getStickerMat(color: string): THREE.MeshBasicMaterial {
 /** One sticker geometry per face direction, created on first use. */
 const STICKER_GEOM: Partial<Record<FaceKey, THREE.BufferGeometry>> = {};
 function getStickerGeom(face: FaceKey): THREE.BufferGeometry {
-  if (!STICKER_GEOM[face]) {
-    const stickerW = HALF * 2 - STICKER_INSET * 2;
-    const geom = new THREE.PlaneGeometry(stickerW, stickerW);
-    const normal = FACE_NORMALS[face];
-    geom.applyQuaternion(
-      new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal),
-    );
-    const offset = normal.clone().multiplyScalar(HALF + STICKER_LIFT);
-    geom.translate(offset.x, offset.y, offset.z);
-    STICKER_GEOM[face] = geom;
-  }
-  return STICKER_GEOM[face]!;
+  const cached = STICKER_GEOM[face];
+  if (cached) return cached;
+  const stickerW = HALF * 2 - STICKER_INSET * 2;
+  const geom = new THREE.PlaneGeometry(stickerW, stickerW);
+  const normal = FACE_NORMALS[face];
+  geom.applyQuaternion(
+    new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal),
+  );
+  const offset = normal.clone().multiplyScalar(HALF + STICKER_LIFT);
+  geom.translate(offset.x, offset.y, offset.z);
+  STICKER_GEOM[face] = geom;
+  return geom;
 }
 
 // --------------------------------------------------------------------------
@@ -233,7 +233,7 @@ export default function CubeRenderer({ model, rotationRef, animStateRef }: Props
     };
     animate();
     return () => cancelAnimationFrame(animFrameRef.current);
-  }, [animStateRef]);
+  }, [animStateRef, rotationRef]);
 
   // ── Mouse drag handling ───────────────────────────────────────────────────
   useEffect(() => {
@@ -277,7 +277,7 @@ export default function CubeRenderer({ model, rotationRef, animStateRef }: Props
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, []);
+  }, [rotationRef]);
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
