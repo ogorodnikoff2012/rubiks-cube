@@ -22,6 +22,10 @@ export type AnimState = { indices: number[]; q: THREE.Quaternion } | null;
  */
 export class MoveAnimation implements IAnimation {
   private readonly affectedArray: number[];
+  // Pre-allocated scratch objects reused every frame — avoids GC pressure
+  // in the hot animation path (~60 allocations per move otherwise).
+  private readonly scratchQ = new THREE.Quaternion();
+  private readonly scratchState: NonNullable<AnimState>;
 
   constructor(
     affectedIndices: number[],
@@ -32,19 +36,21 @@ export class MoveAnimation implements IAnimation {
     private readonly onComplete: (committed: CubeModel) => void,
   ) {
     this.affectedArray = affectedIndices;
+    this.scratchState = { indices: this.affectedArray, q: this.scratchQ };
   }
 
   onBegin(): void {}
 
   onUpdate(p: number): void {
-    const q = new THREE.Quaternion().slerp(this.targetRotation, p);
-    this.onFrame({ indices: this.affectedArray, q });
+    this.scratchQ.identity().slerp(this.targetRotation, p);
+    this.onFrame(this.scratchState);
   }
 
   onEnd(): void {
     // Lock to the exact final position so the renderer shows the correct
     // state for the few frames between this call and the React commit.
-    this.onFrame({ indices: this.affectedArray, q: this.targetRotation });
+    this.scratchQ.copy(this.targetRotation);
+    this.onFrame(this.scratchState);
     this.setCube(() => this.committedModel);
     this.onComplete(this.committedModel);
   }

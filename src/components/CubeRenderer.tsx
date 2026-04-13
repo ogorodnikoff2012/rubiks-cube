@@ -43,6 +43,15 @@ const STICKER_LIFT = 0.001;
 const BLACK_MAT = new THREE.MeshBasicMaterial({ color: '#111111' });
 const CUBIE_GEOM = new THREE.BoxGeometry(HALF * 2, HALF * 2, HALF * 2);
 
+// Scratch objects reused across frames to avoid per-frame heap allocations.
+const _vec3 = new THREE.Vector3();
+const _vec2 = new THREE.Vector2();
+const _dragQX = new THREE.Quaternion();
+const _dragQY = new THREE.Quaternion();
+const _dragResult = new THREE.Quaternion();
+const _axisX = new THREE.Vector3(1, 0, 0);
+const _axisY = new THREE.Vector3(0, 1, 0);
+
 /** One material per color hex string — only 6 sticker colors exist in the game. */
 const stickerMatCache = new Map<string, THREE.MeshBasicMaterial>();
 function getStickerMat(color: string): THREE.MeshBasicMaterial {
@@ -204,9 +213,8 @@ export default function CubeRenderer({ model, rotationRef, animStateRef }: Props
           const cubieGroup = cubieGroupsRef.current[i];
           if (!cubieGroup) continue;
           const [gx, gy, gz] = blocks[i].position;
-          const worldPos = new THREE.Vector3(gx * SPACING, gy * SPACING, gz * SPACING);
-          worldPos.applyQuaternion(q);
-          cubieGroup.position.copy(worldPos);
+          _vec3.set(gx * SPACING, gy * SPACING, gz * SPACING).applyQuaternion(q);
+          cubieGroup.position.copy(_vec3);
           cubieGroup.quaternion.copy(q);
         }
       }
@@ -214,7 +222,7 @@ export default function CubeRenderer({ model, rotationRef, animStateRef }: Props
       const w = container.clientWidth;
       const h = container.clientHeight;
       if (w > 0 && h > 0) {
-        const size = renderer.getSize(new THREE.Vector2());
+        const size = renderer.getSize(_vec2);
         if (size.x !== w || size.y !== h) {
           renderer.setSize(w, h);
         }
@@ -261,13 +269,11 @@ export default function CubeRenderer({ model, rotationRef, animStateRef }: Props
       const angleX = dy * sensitivity;
       const angleY = dx * sensitivity;
 
-      const qX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), angleX);
-      const qY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angleY);
-      const delta = qY.multiply(qX);
-
-      const next = delta.multiply(rotationRef.current.clone());
+      _dragQX.setFromAxisAngle(_axisX, angleX);
+      _dragQY.setFromAxisAngle(_axisY, angleY).multiply(_dragQX); // delta = qY * qX
+      _dragResult.copy(rotationRef.current).premultiply(_dragQY);  // next = delta * current
       // Write to the shared ref — the RAF loop picks it up on the next frame.
-      rotationRef.current = next;
+      rotationRef.current = _dragResult;
     };
 
     const onMouseUp = () => {

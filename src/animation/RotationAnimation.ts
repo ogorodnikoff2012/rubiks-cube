@@ -13,12 +13,15 @@ export class RotationAnimation implements IAnimation {
   private readonly from: THREE.Quaternion;
   private readonly to: THREE.Quaternion;
   private readonly setFn: (q: THREE.Quaternion) => void;
+  // Pre-allocated scratch quaternion reused every frame.
+  private readonly scratchQ: THREE.Quaternion;
 
   constructor(from: THREE.Quaternion, to: THREE.Quaternion, setFn: (q: THREE.Quaternion) => void) {
     // Clone so the caller can mutate their quaternions freely after submission.
     this.from = from.clone();
     this.to = to.clone();
     this.setFn = setFn;
+    this.scratchQ = from.clone();
   }
 
   onBegin(): void {
@@ -26,11 +29,13 @@ export class RotationAnimation implements IAnimation {
   }
 
   onUpdate(p: number): void {
-    this.setFn(this.from.clone().slerp(this.to, p));
+    this.scratchQ.copy(this.from).slerp(this.to, p);
+    this.setFn(this.scratchQ);
   }
 
   onEnd(): void {
     // Emit the exact target so floating-point drift doesn't leave us 1 frame off.
-    this.setFn(this.to.clone());
+    this.scratchQ.copy(this.to);
+    this.setFn(this.scratchQ);
   }
 }
