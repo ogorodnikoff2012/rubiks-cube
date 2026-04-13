@@ -412,16 +412,6 @@ function step5OrderedYellowCross(cube: CubeModel): MoveId[] {
 // Step 6 — Yellow Corners Positioning
 // --------------------------------------------------------------------------
 
-/**
- * Permute the four U-layer corners into their correct slots (ignoring twist).
- *
- * Uses two symmetric 3-cycle algorithms:
- *   algoA  (U R U' L' U R' U' L)  — fixes UBR, cycles the other three
- *   algoB  (U L U' R' U L' U' R)  — fixes UFL, y2-conjugate of algoA
- *
- * Any correctly-slotted corner is at most 1 y' rotation away from an anchor,
- * so the 1-correct case never needs more than one y' rotation.
- */
 function step6YellowCornersPositioning(cube: CubeModel): MoveId[] {
   const result: MoveId[] = [];
   const addMove = (...moves: MoveId[]) => {
@@ -437,10 +427,10 @@ function step6YellowCornersPositioning(cube: CubeModel): MoveId[] {
   // After step 4's `x x` flip, yellow is the original D-face colour.
   const yellow = SOLVED_COLORS.D;
 
-  // algoA: fixes UBR, cycles UFR/UFL/UBL
-  const algoA: MoveId[] = ["U", "R", "U'", "L'", "U", "R'", "U'", "L"];
-  // algoB: fixes UFL, cycles UFR/UBL/UBR  (y2-conjugate: R↔L throughout)
-  const algoB: MoveId[] = ["U", "L", "U'", "R'", "U", "L'", "U'", "R"];
+  // algoA: UFR is anchor, cycles URB to ULF
+  const algoA: MoveId[] = ["L'", "R", "U", "R'", "U'", "L", "U", "R", "U'", "R'"];
+  // algoB: ULF is anchor, cycles UBL to UFR
+  // const algoB: MoveId[] = ["R", "L'", "U'", "L", "U", "R'", "U'", "L'", "U", "L"];
 
   /** Color on the centre of `face` (read dynamically — y-rotations may have shifted centres). */
   function getCenterColor(face: FaceKey): string {
@@ -462,38 +452,37 @@ function step6YellowCornersPositioning(cube: CubeModel): MoveId[] {
   }
 
   // The four U-corner slots expressed as [sideFaceA, sideFaceB] pairs.
-  // Order matches the y' cycle: UFR → UFL → UBL → UBR → UFR
+  // Order matches the y' cycle: UFR → URB → UBL → ULF → UFR
   // (y' moves the piece at each slot to the next slot in this list).
   const slots: [FaceKey, FaceKey][] = [
-    ['F', 'R'], // UFR — 1 y' from algoB anchor
-    ['F', 'L'], // UFL — algoB anchor
-    ['B', 'L'], // UBL — 1 y' from algoA anchor
-    ['B', 'R'], // UBR — algoA anchor
+    ['F', 'R'], // UFR
+    ['R', 'B'], // URB
+    ['B', 'L'], // UBL
+    ['L', 'F'], // ULF
   ];
 
   while (true) {
-    const correct = slots.filter(([a, b]) => isCorrectSlot(a, b));
+    const corners = slots.map(([faceA, faceB]) => isCorrectSlot(faceA, faceB));
+    const correctCount = corners.filter(c => c).length;
 
-    if (correct.length === 4) break;
-
-    if (correct.length === 1) {
-      const [a, b] = correct[0];
-      // Route by which side face is F vs B:
-      //   a === 'B'  →  UBR or UBL  →  use algoA (anchor UBR)
-      //   a === 'F'  →  UFR or UFL  →  use algoB (anchor UFL)
-      if (a === 'B') {
-        if (b === 'L') addMove("y'"); // UBL → UBR (1 y' in the y' cycle)
-        addMove(...algoA);
-      } else {
-        if (b === 'R') addMove("y'"); // UFR → UFL (1 y' in the y' cycle)
-        addMove(...algoB);
-      }
-    } else {
-      // 0 correct = double-swap.  One unconditional algoA application always
-      // produces ≥ 1 correctly-slotted corner; the loop then resolves it.
-      // (Any other count is unreachable after steps 1–5 but the guard covers it.)
-      addMove(...algoA);
+    if (correctCount === 4) {
+      break;
     }
+
+    if (correctCount === 0) {
+      addMove(...algoA);
+      continue;
+    }
+
+    if (correctCount === 1) {
+      const shift = corners.indexOf(true);
+      addMove(...repeatMove("y'", shift));
+      addMove(...algoA);
+      addMove(...repeatMove("y", shift));
+      continue;
+    }
+
+    throw new Error(`Unexpected corners: [${corners.join(',')}]`);
   }
 
   return optimizeMoves(result);
