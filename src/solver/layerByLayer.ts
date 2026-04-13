@@ -488,6 +488,57 @@ function step6YellowCornersPositioning(cube: CubeModel): MoveId[] {
   return optimizeMoves(result);
 }
 
+function step7YellowCornersOrientation(cube: CubeModel): MoveId[] {
+  const result: MoveId[] = [];
+  const addMove = (...moves: MoveId[]) => {
+    for (const m of moves) {
+      result.push(m);
+      cube = applyMoveToModel(cube, m);
+      if (result.length >= 1000) {
+        throw new Error('Internal error, infinite loop');
+      }
+    }
+  };
+
+  const yellow = SOLVED_COLORS.D;
+
+  function findYellowFace(): ('U'|'F'|'R')&FaceKey {
+    const frontFace = getFaceColors(cube, 'F', 'U');
+    if (frontFace[0][2] === yellow) {
+      return 'F';
+    }
+
+    const upFace = getFaceColors(cube, 'U', 'B');
+    if (upFace[2][2] === yellow) {
+      return 'U';
+    }
+
+    const rightFace = getFaceColors(cube, 'R', 'U');
+    if (rightFace[0][0] === yellow) {
+      return 'R';
+    }
+
+    throw new Error('Yellow face not found');
+  }
+
+  for (let i = 0; i < 4; addMove("U"), ++i) {
+    const face = findYellowFace();
+
+    if (face === 'U') {
+      continue;
+    }
+
+    if (face === 'F') {
+      addMove("R", "F'", "R'", "F", "R", "F'", "R'", "F");
+    } else {
+      addMove("F'", "R", "F", "R'", "F'", "R", "F", "R'");
+    }
+  }
+
+  return optimizeMoves(result);
+}
+
+
 // --------------------------------------------------------------------------
 // Public API
 // --------------------------------------------------------------------------
@@ -501,6 +552,8 @@ export function solveLayerByLayer(cube: CubeModel): SolverStep[] {
     ['Step 4: Yellow Cross', step4YellowCross],
     ['Step 5: Ordered Yellow Cross', step5OrderedYellowCross],
     ['Step 6: Yellow Corners Position', step6YellowCornersPositioning],
+    ['Step 7: Yellow Corners Orientation', step7YellowCornersOrientation],
+    ['Step 8: Final Orientation', step0Orientation],
   ];
 
   const result: SolverStep[] = [];
