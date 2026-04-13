@@ -82,7 +82,6 @@ interface Block {
 ```ts
 interface CubeModel {
   blocks: Block[];
-  rotation: THREE.Quaternion; // whole-cube orientation (mouse drag)
 }
 ```
 
@@ -105,11 +104,13 @@ interface CubeModel {
 
 ### `cube.ts`
 
-`createSolvedCube()` — iterates `x,y,z ∈ {-1,0,1}`, assigns face colors to the block faces that lie on the cube's outer surface, and returns a `CubeModel` with the identity quaternion.
+`createSolvedCube()` — iterates `x,y,z ∈ {-1,0,1}`, assigns face colors to the block faces that lie on the cube's outer surface, and returns a `CubeModel`.
 
 ### `moves.ts`
 
-**`MoveId`** — union of the 12 standard quarter-turn names: `'R' | "R'" | 'L' | "L'" | 'U' | "U'" | 'D' | "D'" | 'F' | "F'" | 'B' | "B'"`.
+**`MoveId`** — union of 18 move identifiers: the 12 face quarter-turns (`R R' L L' U U' D D' F F' B B'`) plus the 6 whole-cube rotations (`x x' y y' z z'`).
+
+**`FACE_MOVES`** — the 12 face-turn `MoveId`s, used for scramble generation (excludes whole-cube rotations).
 
 **`MOVE_SPECS`** — per-move `{ axis, angle, axisIndex, sliceValue }`:
 
@@ -189,7 +190,7 @@ A React component that owns a `<canvas>` and manages a Three.js scene inside `us
 
 ```
 Scene
-└── cubeGroup  (quaternion = CubeModel.rotation)
+└── cubeGroup  (quaternion = rotationRef.current)
     └── cubieGroup × 26  (one per Block)
         ├── Mesh (BoxGeometry)           black body
         └── Mesh (PlaneGeometry) × 1–3  coloured sticker per visible face
@@ -221,11 +222,11 @@ The rebuild-on-every-model-change approach is simple and correct; geometry is ch
 
 ### Mouse drag
 
-`mousedown` / `mousemove` / `mouseup` handlers on `canvas`/`window`. Each `mousemove` delta is converted to a world-space quaternion delta and composed onto `CubeModel.rotation` via the `onRotate` prop:
+`mousedown` / `mousemove` / `mouseup` handlers on `canvas`/`window`. Each `mousemove` delta is converted to a world-space quaternion delta and composed directly into `rotationRef` (a prop passed in from App):
 
 ```ts
 delta = qY(dx) * qX(dy);
-next = delta * model.rotation;
+rotationRef.current = delta * rotationRef.current;
 ```
 
 ---
@@ -236,43 +237,62 @@ The root component. Holds all mutable state and orchestrates animations.
 
 ### State
 
-| State          | Type        | Purpose                                                                         |
-| -------------- | ----------- | ------------------------------------------------------------------------------- |
-| `cube`         | `CubeModel` | Current rendered cube (React-managed)                                           |
-| `isAnimating`  | `boolean`   | A move animation is in flight                                                   |
-| `queueLength`  | `number`    | Moves waiting behind the current one                                            |
-| `moves`        | `MoveId[]`  | Full history of committed forward moves                                         |
-| `historyIndex` | `number`    | How many history entries are applied; `moves[historyIndex..]` is the redo stack |
+Visible React state is encapsulated in the `useCubeQueue` hook and exposed via the `queue` object:
 
-### Refs (synchronous state, bypass React batching)
+| Field           | Type        | Purpose                                                                         |
+| --------------- | ----------- | ------------------------------------------------------------------------------- |
+| `cube`          | `CubeModel` | Current rendered cube (React-managed, updated at end of each animation)         |
+| `historyIndex`  | `number`    | How many history entries are applied; `moves[historyIndex..]` is the redo stack |
+| `totalMoves`    | `number`    | Total moves in the history array                                                |
+| `pendingCount`  | `number`    | Items in the queue that haven't started animating yet                           |
+| `isAnimating`   | `boolean`   | A move animation is currently in flight                                         |
+| `isBusy`        | `boolean`   | `isAnimating \|\| pendingCount > 0`; used to gate undo/redo in the UI           |
 
-| Ref                 | Purpose                                                                                          |
-| ------------------- | ------------------------------------------------------------------------------------------------ |
-| `moveQueueRef`      | Pending `MoveId[]`; mutated synchronously in callbacks                                           |
-| `isProcessingRef`   | Guards single drain-start and one-shot redo truncation per batch                                 |
-| `historyIndexRef`   | Snapshot of `historyIndex` for reading in callbacks before re-render                             |
-| `committedModelRef` | Fully-resolved cube model; updated synchronously in `onComplete` — one render ahead of `cubeRef` |
-| `isBusyRef`         | `isAnimating \|\| queueLength > 0`; read in keydown handler                                      |
+App also owns:
+
+| Ref             | Purpose                                                                                              |
+| --------------- | ---------------------------------------------------------------------------------------------------- |
+| `rotationRef`   | Whole-cube visual quaternion — read by RAF loop every frame, written by drag and RotationAnimation   |
+
+### Refs inside `useCubeQueue` (synchronous state, bypass React batching)
+
+| Ref                 | Purpose                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------- |
+| `committedCubeRef`  | Fully-resolved cube model; updated synchronously in `onDone` — one render ahead of `setCube`     |
+| `histRef`           | Mirrors `historyIndex` / move list for use in animation callbacks without waiting for re-renders  |
+| `queueRef`          | Mutable action queue; plain array mutation avoids stale-closure issues with `useState`            |
+| `isProcessingRef`   | Guards against starting a second concurrent drain loop                                            |
+| `generationRef`     | Bumped by `resetCube()` so in-flight animation callbacks can detect a reset and become no-ops     |
+| `animStateRef`      | Current move animation state (indices + quaternion) read each frame by CubeRenderer's RAF loop   |
 
 ### Move execution pipeline
 
 ```
-handleMove(move)
+dispatch(action)
   │
-  ├─ push to moveQueueRef
-  ├─ if first in batch: truncate redo stack, set isProcessingRef
-  └─ drainQueue(recordMove)
+  └─ push to queueRef, setPendingCount()
+     │
+     [background useEffect: starts drain when pendingCount > 0 and no drain running]
+     │
+     drain()
        │
-       ├─ pop move from queue
-       ├─ runMoveAnimation(move, committedModelRef.current, onDone)
-       │    ├─ compute affectedIndices from currentModel.blocks
-       │    ├─ compute committedModel = applyMoveToModel(currentModel, move)  ← eager!
-       │    └─ submit EasedAnimation(MoveAnimation(...))
+       ├─ case 'effect': fn() then drain() immediately
+       │
+       ├─ case 'move':
+       │     trim redo stack if needed
+       │     setIsAnimating(true)
+       │     runMoveAnimation(move, committedCubeRef.current, onDone)
+       │       ├─ compute affectedIndices from currentModel.blocks
+       │       ├─ compute committedModel = applyMoveToModel(...)  ← eager!
+       │       └─ submit EasedAnimation(MoveAnimation(...))
+       │
+       ├─ case 'undo': animate INVERSE_MOVE[history[index-1]], then onDone
+       ├─ case 'redo': animate history[index], then onDone
        │
        └─ onDone(committed):
-            ├─ committedModelRef.current = committed
-            ├─ recordMove(move)  → append to history, increment historyIndex
-            └─ drainQueue(recordMove)  ← recurse for next queued move
+            committedCubeRef.current = committed
+            update histRef, setHistoryIndex()
+            drain()  ← recurse for next queued action
 ```
 
 ### History
@@ -297,13 +317,13 @@ handleMove(move)
 
 ## Key design decisions and pitfalls
 
-### `committedModelRef` vs `cubeRef`
+### `committedCubeRef` vs React `cube` state
 
-`cubeRef.current` mirrors React state, which lags one render behind `setCube()` calls. When `drainQueue` starts the next animation synchronously inside `onComplete`, React hasn't flushed the previous move's `setCube()` yet. If `getAffectedIndices` read from `cubeRef`, it would see stale block positions and animate the wrong cubies.
+React's `cube` state lags one render behind `setCube()` calls. When `drain` starts the next animation synchronously inside `onDone`, React hasn't flushed the previous move's `setCube()` yet. If `getAffectedIndices` read from stale state, it would see old block positions and animate the wrong cubies.
 
-`committedModelRef` is updated synchronously in `onComplete`, always one step ahead of React. All calls to `getAffectedIndices` and `applyMoveToModel` use `committedModelRef.current`, never `cubeRef.current`.
+`committedCubeRef` is updated synchronously in `onDone`, always one step ahead of React. All calls to `getAffectedIndices` and `applyMoveToModel` use `committedCubeRef.current`.
 
-`committedModelRef` is frozen while `isProcessingRef` is true so that mid-animation renders (which write `block.rotation` into cube state) don't overwrite it.
+`committedCubeRef` is only synced from React state when `isProcessingRef` is false (idle), preventing mid-animation React renders from overwriting it.
 
 ### `MoveAnimation` receives a pre-computed model
 
