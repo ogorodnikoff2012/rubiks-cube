@@ -124,17 +124,17 @@ export default function App() {
   const [solverLog, setSolverLog] = useState<string[]>([]);
 
   // ── Move helpers ──────────────────────────────────────────────────────────
-  const move = (id: MoveId) => queue.dispatch({ kind: 'move', move: id });
+  const move = useCallback((id: MoveId) => queue.dispatch({ kind: 'move', move: id }), [queue.dispatch]);
 
-  const handleUndo = () => {
+  const handleUndo = useCallback(() => {
     if (!canUndo) return;
     queue.dispatch({ kind: 'undo' });
-  };
+  }, [canUndo, queue.dispatch]);
 
-  const handleRedo = () => {
+  const handleRedo = useCallback(() => {
     if (!canRedo) return;
     queue.dispatch({ kind: 'redo' });
-  };
+  }, [canRedo, queue.dispatch]);
 
   const handleScramble = () => {
     const actions: CubeAction[] = [];
@@ -216,8 +216,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-    // Re-register whenever queue state changes (isBusy, canUndo, canRedo).
-  }, [queue.isBusy, canUndo, canRedo]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [move, handleUndo, handleRedo, queue.cancel, queue.isBusy]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
