@@ -490,7 +490,8 @@ function step6YellowCornersPositioning(cube: CubeModel): MoveId[] {
       }
     } else {
       // 0 correct = double-swap.  One unconditional algoA application always
-      // produces exactly 1 correctly-slotted corner; the loop then resolves it.
+      // produces ≥ 1 correctly-slotted corner; the loop then resolves it.
+      // (Any other count is unreachable after steps 1–5 but the guard covers it.)
       addMove(...algoA);
     }
   }
