@@ -24,13 +24,18 @@ Step 6 permutes the corners into the correct slots. Orientation (twist) is left 
 
 ---
 
-## Algorithm
+## Algorithms
 
-```
-U R U' L' U R' U' L
-```
+Two symmetric algorithms are used to keep y' rotations to at most 1 in all cases.
 
-This is a well-known **pure 3-cycle of the four U-layer corners**. It leaves one slot (the **anchor**) undisturbed and cycles the remaining three. The exact anchor slot is confirmed empirically during implementation (expected: UBL).
+| Name | Sequence | Anchor slot |
+|------|----------|-------------|
+| `algoA` | `U R U' L' U R' U' L` | UBL |
+| `algoB` | `U L U' R' U L' U' R` | UFR |
+
+`algoB` is the **y2-conjugate** of `algoA` (R↔L swapped throughout). It fixes UFR — the slot diagonally opposite UBL — and cycles the remaining three corners in the symmetric direction.
+
+Both are pure 3-cycles of the four U-layer corners. The exact anchor slots are confirmed empirically during implementation.
 
 ---
 
@@ -51,15 +56,26 @@ A corner is **correctly slotted** when `findCorner(cube, yellow, centerA, center
 
 ## Main Loop
 
+The y' cycle for U-corner slots is `UFR→UFL→UBL→UBR→UFR`. With two anchors at UBL and UFR (diagonally opposite), each slot is at most 1 y' hop from one of the anchors:
+
+| Correct corner at | y' rotations | Algorithm |
+|---|---|---|
+| UBL | 0 | algoA |
+| UFL | 1 (UFL→UBL) | algoA |
+| UFR | 0 | algoB |
+| UBR | 1 (UBR→UFR) | algoB |
+
 ```
 while not all 4 corners correctly slotted (guard: 1000 moves):
   count correctly-slotted corners
   if 1 correct:
-    apply y' 0–3 times to bring the correct corner to the anchor slot
-    apply algorithm
+    if correct corner is at UBL or UFL:
+      apply 0–1 y' to reach UBL, apply algoA
+    else (UFR or UBR):
+      apply 0–1 y' to reach UFR, apply algoB
   if 0 correct (double-swap):
-    apply algorithm once unconditionally
-    (this always produces ≥ 1 correctly-slotted corner; loop continues)
+    apply algoA once unconditionally
+    (always produces ≥ 1 correctly-slotted corner; loop continues)
 ```
 
 ### Case analysis
@@ -67,7 +83,7 @@ while not all 4 corners correctly slotted (guard: 1000 moves):
 | Permutation type | Correct slots before | Algorithm applications |
 |-----------------|---------------------|----------------------|
 | Identity | 4 | 0 |
-| 3-cycle | 1 | 1 |
+| 3-cycle | 1 | 1 (at most 1 y' rotation) |
 | Double-swap | 0 | ≤ 2 |
 
 All three are even permutations of A₄, covering every reachable state after steps 1–5.
