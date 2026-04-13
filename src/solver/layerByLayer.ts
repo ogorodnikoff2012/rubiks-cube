@@ -409,6 +409,96 @@ function step5OrderedYellowCross(cube: CubeModel): MoveId[] {
 }
 
 // --------------------------------------------------------------------------
+// Step 6 — Yellow Corners Positioning
+// --------------------------------------------------------------------------
+
+/**
+ * Permute the four U-layer corners into their correct slots (ignoring twist).
+ *
+ * Uses two symmetric 3-cycle algorithms:
+ *   algoA  (U R U' L' U R' U' L)  — fixes UBL, cycles the other three
+ *   algoB  (U L U' R' U L' U' R)  — fixes UFR, y2-conjugate of algoA
+ *
+ * Any correctly-slotted corner is at most 1 y' rotation away from an anchor,
+ * so the 1-correct case never needs more than one y' rotation.
+ */
+function step6YellowCornersPositioning(cube: CubeModel): MoveId[] {
+  const result: MoveId[] = [];
+  const addMove = (...moves: MoveId[]) => {
+    for (const m of moves) {
+      result.push(m);
+      cube = applyMoveToModel(cube, m);
+      if (result.length >= 1000) {
+        throw new Error('Internal error, infinite loop');
+      }
+    }
+  };
+
+  // After step 4's `x x` flip, yellow is the original D-face colour.
+  const yellow = SOLVED_COLORS.D;
+
+  // algoA: fixes UBL, cycles UFL/UFR/UBR
+  const algoA: MoveId[] = ["U", "R", "U'", "L'", "U", "R'", "U'", "L"];
+  // algoB: fixes UFR, cycles UFL/UBL/UBR  (y2-conjugate: R↔L throughout)
+  const algoB: MoveId[] = ["U", "L", "U'", "R'", "U", "L'", "U'", "R"];
+
+  /** Color on the centre of `face` (read dynamically — y-rotations may have shifted centres). */
+  function getCenterColor(face: FaceKey): string {
+    return getFaceColors(cube, face, 'U')[1][1];
+  }
+
+  /**
+   * True when the corner whose colours are {yellow, centerA, centerB} is
+   * physically located in the slot formed by {U, faceA, faceB}, regardless
+   * of which face each colour sits on (i.e. slot correct, orientation ignored).
+   */
+  function isCorrectSlot(faceA: FaceKey, faceB: FaceKey): boolean {
+    const loc = findCorner(cube, yellow, getCenterColor(faceA), getCenterColor(faceB));
+    return (
+      (loc[0] === 'U' || loc[1] === 'U' || loc[2] === 'U') &&
+      (loc[0] === faceA || loc[1] === faceA || loc[2] === faceA) &&
+      (loc[0] === faceB || loc[1] === faceB || loc[2] === faceB)
+    );
+  }
+
+  // The four U-corner slots expressed as [sideFaceA, sideFaceB] pairs.
+  // Order matches the y' cycle: UFR → UFL → UBL → UBR → UFR
+  // (y' moves the piece at each slot to the next slot in this list).
+  const slots: [FaceKey, FaceKey][] = [
+    ['F', 'R'], // UFR — algoB anchor
+    ['F', 'L'], // UFL — 1 y' from algoA anchor
+    ['B', 'L'], // UBL — algoA anchor
+    ['B', 'R'], // UBR — 1 y' from algoB anchor
+  ];
+
+  while (true) {
+    const correct = slots.filter(([a, b]) => isCorrectSlot(a, b));
+
+    if (correct.length === 4) break;
+
+    if (correct.length === 1) {
+      const [a, b] = correct[0];
+      // Route by which side face is L vs R:
+      //   b === 'L'  →  UBL or UFL  →  use algoA (anchor UBL)
+      //   b === 'R'  →  UFR or UBR  →  use algoB (anchor UFR)
+      if (b === 'L') {
+        if (a === 'F') addMove("y'"); // UFL → UBL (1 y' in the y' cycle)
+        addMove(...algoA);
+      } else {
+        if (a === 'B') addMove("y'"); // UBR → UFR (1 y' in the y' cycle)
+        addMove(...algoB);
+      }
+    } else {
+      // 0 correct = double-swap.  One unconditional algoA application always
+      // produces exactly 1 correctly-slotted corner; the loop then resolves it.
+      addMove(...algoA);
+    }
+  }
+
+  return optimizeMoves(result);
+}
+
+// --------------------------------------------------------------------------
 // Public API
 // --------------------------------------------------------------------------
 
@@ -420,6 +510,7 @@ export function solveLayerByLayer(cube: CubeModel): SolverStep[] {
     ['Step 3: Middle Layer', step3MiddleLayer],
     ['Step 4: Yellow Cross', step4YellowCross],
     ['Step 5: Ordered Yellow Cross', step5OrderedYellowCross],
+    ['Step 6: Yellow Corners Position', step6YellowCornersPositioning],
   ];
 
   const result: SolverStep[] = [];
