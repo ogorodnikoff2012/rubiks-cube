@@ -416,8 +416,8 @@ function step5OrderedYellowCross(cube: CubeModel): MoveId[] {
  * Permute the four U-layer corners into their correct slots (ignoring twist).
  *
  * Uses two symmetric 3-cycle algorithms:
- *   algoA  (U R U' L' U R' U' L)  — fixes UBL, cycles the other three
- *   algoB  (U L U' R' U L' U' R)  — fixes UFR, y2-conjugate of algoA
+ *   algoA  (U R U' L' U R' U' L)  — fixes UBR, cycles the other three
+ *   algoB  (U L U' R' U L' U' R)  — fixes UFL, y2-conjugate of algoA
  *
  * Any correctly-slotted corner is at most 1 y' rotation away from an anchor,
  * so the 1-correct case never needs more than one y' rotation.
@@ -437,9 +437,9 @@ function step6YellowCornersPositioning(cube: CubeModel): MoveId[] {
   // After step 4's `x x` flip, yellow is the original D-face colour.
   const yellow = SOLVED_COLORS.D;
 
-  // algoA: fixes UBL, cycles UFL/UFR/UBR
+  // algoA: fixes UBR, cycles UFR/UFL/UBL
   const algoA: MoveId[] = ["U", "R", "U'", "L'", "U", "R'", "U'", "L"];
-  // algoB: fixes UFR, cycles UFL/UBL/UBR  (y2-conjugate: R↔L throughout)
+  // algoB: fixes UFL, cycles UFR/UBL/UBR  (y2-conjugate: R↔L throughout)
   const algoB: MoveId[] = ["U", "L", "U'", "R'", "U", "L'", "U'", "R"];
 
   /** Color on the centre of `face` (read dynamically — y-rotations may have shifted centres). */
@@ -465,10 +465,10 @@ function step6YellowCornersPositioning(cube: CubeModel): MoveId[] {
   // Order matches the y' cycle: UFR → UFL → UBL → UBR → UFR
   // (y' moves the piece at each slot to the next slot in this list).
   const slots: [FaceKey, FaceKey][] = [
-    ['F', 'R'], // UFR — algoB anchor
-    ['F', 'L'], // UFL — 1 y' from algoA anchor
-    ['B', 'L'], // UBL — algoA anchor
-    ['B', 'R'], // UBR — 1 y' from algoB anchor
+    ['F', 'R'], // UFR — 1 y' from algoB anchor
+    ['F', 'L'], // UFL — algoB anchor
+    ['B', 'L'], // UBL — 1 y' from algoA anchor
+    ['B', 'R'], // UBR — algoA anchor
   ];
 
   while (true) {
@@ -478,14 +478,14 @@ function step6YellowCornersPositioning(cube: CubeModel): MoveId[] {
 
     if (correct.length === 1) {
       const [a, b] = correct[0];
-      // Route by which side face is L vs R:
-      //   b === 'L'  →  UBL or UFL  →  use algoA (anchor UBL)
-      //   b === 'R'  →  UFR or UBR  →  use algoB (anchor UFR)
-      if (b === 'L') {
-        if (a === 'F') addMove("y'"); // UFL → UBL (1 y' in the y' cycle)
+      // Route by which side face is F vs B:
+      //   a === 'B'  →  UBR or UBL  →  use algoA (anchor UBR)
+      //   a === 'F'  →  UFR or UFL  →  use algoB (anchor UFL)
+      if (a === 'B') {
+        if (b === 'L') addMove("y'"); // UBL → UBR (1 y' in the y' cycle)
         addMove(...algoA);
       } else {
-        if (a === 'B') addMove("y'"); // UBR → UFR (1 y' in the y' cycle)
+        if (b === 'R') addMove("y'"); // UFR → UFL (1 y' in the y' cycle)
         addMove(...algoB);
       }
     } else {
