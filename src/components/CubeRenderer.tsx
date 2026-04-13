@@ -2,23 +2,11 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import type { CubeModel, FaceKey } from '../types/cube';
 import type { AnimState } from '../animation/MoveAnimation';
+import { FACE_NORMALS } from '../model/moves';
 
 // --------------------------------------------------------------------------
 // Face geometry helpers
 // --------------------------------------------------------------------------
-
-/**
- * Map from FaceKey to the normal direction of that face on a unit cube.
- * The sticker quad is placed just above the cube surface on that face.
- */
-const FACE_NORMAL: Record<FaceKey, THREE.Vector3> = {
-  F: new THREE.Vector3(0, 0, 1),
-  B: new THREE.Vector3(0, 0, -1),
-  U: new THREE.Vector3(0, 1, 0),
-  D: new THREE.Vector3(0, -1, 0),
-  R: new THREE.Vector3(1, 0, 0),
-  L: new THREE.Vector3(-1, 0, 0),
-};
 
 /** Vertical field of view (degrees) used when the viewport is square or landscape. */
 const BASE_FOV = 45;
@@ -69,7 +57,7 @@ function getStickerGeom(face: FaceKey): THREE.BufferGeometry {
   if (!STICKER_GEOM[face]) {
     const stickerW = HALF * 2 - STICKER_INSET * 2;
     const geom = new THREE.PlaneGeometry(stickerW, stickerW);
-    const normal = FACE_NORMAL[face];
+    const normal = FACE_NORMALS[face];
     geom.applyQuaternion(
       new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal),
     );

@@ -25,8 +25,8 @@ export type MoveId =
   | 'z'
   | "z'";
 
-/** All valid move identifiers, useful for random-move generation. */
-export const ALL_MOVES: MoveId[] = [
+/** The 12 face-turn move identifiers, used for scramble generation. */
+export const FACE_MOVES: MoveId[] = [
   'R',
   "R'",
   'L',
@@ -147,7 +147,7 @@ export const MOVE_SPECS: Record<MoveId, MoveSpec> = {
 // Helpers
 // --------------------------------------------------------------------------
 
-const FACE_NORMALS: Record<FaceKey, THREE.Vector3> = {
+export const FACE_NORMALS: Record<FaceKey, THREE.Vector3> = {
   R: new THREE.Vector3(1, 0, 0),
   L: new THREE.Vector3(-1, 0, 0),
   U: new THREE.Vector3(0, 1, 0),

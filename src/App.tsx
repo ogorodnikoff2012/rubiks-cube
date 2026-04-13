@@ -7,7 +7,7 @@ import { EasedAnimation } from './animation/EasedAnimation';
 import { RotationAnimation } from './animation/RotationAnimation';
 import { easeInOutCubic } from './animation/easing';
 import { solveLayerByLayer } from './solver/layerByLayer';
-import { ALL_MOVES } from './model/moves';
+import { FACE_MOVES } from './model/moves';
 import type { MoveId } from './model/moves';
 import { useCubeQueue } from './hooks/useCubeQueue';
 import type { CubeAction } from './hooks/useCubeQueue';
@@ -140,7 +140,7 @@ export default function App() {
     const actions: CubeAction[] = [];
     let lastFace: string | null = null;
     for (let i = 0; i < SCRAMBLE_MOVES; i++) {
-      const pool = ALL_MOVES.filter((m) => m.replace("'", '') !== lastFace);
+      const pool = FACE_MOVES.filter((m) => m.replace("'", '') !== lastFace);
       const scrambleMove = pool[Math.floor(Math.random() * pool.length)];
       lastFace = scrambleMove.replace("'", '');
       actions.push({ kind: 'move', move: scrambleMove });
