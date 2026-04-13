@@ -2,46 +2,49 @@ import * as THREE from 'three';
 import type { CubeModel } from '../types/cube';
 import type { IAnimation } from './IAnimation';
 
-type CubeUpdater = (fn: (prev: CubeModel) => CubeModel) => void;
+type CubeUpdater = (fn: () => CubeModel) => void;
+
+/**
+ * Per-frame animation state shared with the renderer via a mutable ref.
+ * null = no move animation in progress.
+ */
+export type AnimState = { indices: number[]; q: THREE.Quaternion } | null;
 
 /**
  * Drives a single face-rotation move.
  *
- * `committedModel` is the fully-resolved cube state that should be installed
- * when the animation ends.  It must be computed *before* the animation is
- * submitted (i.e. by the caller, not inside a React state updater), so that
- * the next queued move can immediately read the correct block positions from
- * it without waiting for React to flush the state update.
+ * `onFrame` is called every animation tick with the current interpolated
+ * quaternion and the affected block indices.  The renderer reads this ref
+ * directly and updates Three.js transforms without going through React state,
+ * keeping the RAF loop free of React render overhead.
  *
- * `onComplete` receives `committedModel` so the caller can propagate it to
- * wherever the next move will read its affected-block indices from.
+ * `setCube` is called exactly once — in `onEnd` — to commit the final model.
  */
 export class MoveAnimation implements IAnimation {
-  private readonly affected: Set<number>;
+  private readonly affectedArray: number[];
 
   constructor(
     affectedIndices: number[],
     private readonly targetRotation: THREE.Quaternion,
+    private readonly onFrame: (state: AnimState) => void,
     private readonly setCube: CubeUpdater,
     private readonly committedModel: CubeModel,
     private readonly onComplete: (committed: CubeModel) => void,
   ) {
-    this.affected = new Set(affectedIndices);
+    this.affectedArray = affectedIndices;
   }
 
   onBegin(): void {}
 
   onUpdate(p: number): void {
     const q = new THREE.Quaternion().slerp(this.targetRotation, p);
-    this.setCube((prev) => ({
-      ...prev,
-      blocks: prev.blocks.map((block, i) =>
-        this.affected.has(i) ? { ...block, rotation: q } : block,
-      ),
-    }));
+    this.onFrame({ indices: this.affectedArray, q });
   }
 
   onEnd(): void {
+    // Lock to the exact final position so the renderer shows the correct
+    // state for the few frames between this call and the React commit.
+    this.onFrame({ indices: this.affectedArray, q: this.targetRotation });
     this.setCube(() => this.committedModel);
     this.onComplete(this.committedModel);
   }

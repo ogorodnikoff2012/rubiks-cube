@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type React from 'react';
 import * as THREE from 'three';
 import type { AnimationService } from '../animation/AnimationService';
 import { EasedAnimation } from '../animation/EasedAnimation';
 import { MoveAnimation } from '../animation/MoveAnimation';
+import type { AnimState } from '../animation/MoveAnimation';
 import { easeInOutCubic } from '../animation/easing';
 import { createSolvedCube } from '../model/cube';
 import { INVERSE_MOVE, MOVE_SPECS, applyMoveToModel, getAffectedIndices } from '../model/moves';
@@ -38,6 +40,8 @@ export type CubeAction =
 // Return type
 // --------------------------------------------------------------------------
 
+export type { AnimState };
+
 export interface CubeQueue {
   // ── Visible state (for rendering / UI) ───────────────────────────────────
   /** Current cube model — passed directly to CubeRenderer. */
@@ -61,6 +65,12 @@ export interface CubeQueue {
   cancel: () => void;
   /** Reset cube to solved state and clear all history and the queue. */
   resetCube: () => void;
+  /**
+   * Mutable ref updated every animation frame with the current move's
+   * interpolated rotation and affected block indices.  The renderer reads
+   * this directly to drive Three.js transforms without React state updates.
+   */
+  animStateRef: React.MutableRefObject<AnimState>;
   /**
    * Return the committed cube model as of the last completed animation.
    * Use this to compute a solver solution from the current logical state
@@ -124,6 +134,8 @@ export function useCubeQueue(animService: AnimationService): CubeQueue {
    * while the animation is in-flight, the callbacks become no-ops and the
    * drain loop is not advanced.
    */
+  const animStateRef = useRef<AnimState>(null);
+
   const runMoveAnimation = useCallback(
     (move: MoveId, currentModel: CubeModel, onDone: (committed: CubeModel) => void) => {
       const { axis, angle } = MOVE_SPECS[move];
@@ -132,14 +144,20 @@ export function useCubeQueue(animService: AnimationService): CubeQueue {
       const committedModel = applyMoveToModel(currentModel, move);
       const gen = generationRef.current;
 
-      // Wrap setCube so that visual updates from stale animations are dropped.
-      const guardedSetCube = (fn: (prev: CubeModel) => CubeModel) => {
+      // Write directly to the ref — the renderer reads it from the RAF loop,
+      // no React state update needed during animation frames.
+      const guardedOnFrame = (state: AnimState) => {
+        if (generationRef.current === gen) animStateRef.current = state;
+      };
+
+      // setCube is called once (in onEnd) to commit the final model.
+      const guardedSetCube = (fn: () => CubeModel) => {
         if (generationRef.current === gen) setCube(fn);
       };
 
       animService.submit(
         new EasedAnimation(
-          new MoveAnimation(affectedIndices, targetRotation, guardedSetCube, committedModel, (c) => {
+          new MoveAnimation(affectedIndices, targetRotation, guardedOnFrame, guardedSetCube, committedModel, (c) => {
             if (generationRef.current === gen) onDone(c);
           }),
           easeInOutCubic,
@@ -147,7 +165,7 @@ export function useCubeQueue(animService: AnimationService): CubeQueue {
         MOVE_DURATION_MS,
       );
     },
-    [],
+    [animService],
   );
 
   // ── Queue drain ───────────────────────────────────────────────────────────
@@ -261,12 +279,13 @@ export function useCubeQueue(animService: AnimationService): CubeQueue {
     // Increment generation first so that any in-flight animation callbacks
     // detect the reset and become no-ops (guarded in runMoveAnimation).
     generationRef.current += 1;
-    // Stop the service: this synchronously calls onEnd() on all live
-    // animations.  Because of the generation guard, none of them will
-    // update committed state or advance the drain loop.
-    animService.stop();
-    animService.start();
+    // Evict all live animations synchronously.  Because the generation was
+    // already bumped, every onEnd() callback is a no-op — no stale state
+    // is committed and the drain loop is not advanced.  The RAF loop keeps
+    // running so the next action can be submitted immediately.
+    animService.cancelAll();
 
+    animStateRef.current = null;
     queueRef.current = [];
     isProcessingRef.current = false;
     histRef.current = { moves: [], index: 0 };
@@ -277,7 +296,7 @@ export function useCubeQueue(animService: AnimationService): CubeQueue {
     setTotalMoves(0);
     setPendingCount(0);
     setIsAnimating(false);
-  }, []);
+  }, [animService]);
 
   const getCommittedCube = useCallback(() => committedCubeRef.current, []);
 
@@ -291,5 +310,6 @@ export function useCubeQueue(animService: AnimationService): CubeQueue {
     cancel,
     resetCube,
     getCommittedCube,
+    animStateRef,
   };
 }

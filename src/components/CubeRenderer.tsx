@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import type { CubeModel, FaceKey } from '../types/cube';
+import type { AnimState } from '../animation/MoveAnimation';
 
 // --------------------------------------------------------------------------
 // Face geometry helpers
@@ -35,62 +36,62 @@ const STICKER_INSET = 0.08;
 const STICKER_LIFT = 0.001;
 
 // --------------------------------------------------------------------------
+// Module-level geometry / material cache
+// Shared across all rebuilds — avoids allocation pressure during animation.
+// --------------------------------------------------------------------------
+
+const BLACK_MAT = new THREE.MeshBasicMaterial({ color: '#111111' });
+const CUBIE_GEOM = new THREE.BoxGeometry(HALF * 2, HALF * 2, HALF * 2);
+
+/** One material per color hex string — only 6 sticker colors exist in the game. */
+const stickerMatCache = new Map<string, THREE.MeshBasicMaterial>();
+function getStickerMat(color: string): THREE.MeshBasicMaterial {
+  let mat = stickerMatCache.get(color);
+  if (!mat) {
+    mat = new THREE.MeshBasicMaterial({ color, side: THREE.FrontSide });
+    stickerMatCache.set(color, mat);
+  }
+  return mat;
+}
+
+/** One sticker geometry per face direction, created on first use. */
+const STICKER_GEOM: Partial<Record<FaceKey, THREE.BufferGeometry>> = {};
+function getStickerGeom(face: FaceKey): THREE.BufferGeometry {
+  if (!STICKER_GEOM[face]) {
+    const stickerW = HALF * 2 - STICKER_INSET * 2;
+    const geom = new THREE.PlaneGeometry(stickerW, stickerW);
+    const normal = FACE_NORMAL[face];
+    geom.applyQuaternion(
+      new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal),
+    );
+    const offset = normal.clone().multiplyScalar(HALF + STICKER_LIFT);
+    geom.translate(offset.x, offset.y, offset.z);
+    STICKER_GEOM[face] = geom;
+  }
+  return STICKER_GEOM[face]!;
+}
+
+// --------------------------------------------------------------------------
 // Build scene objects from the model
 // --------------------------------------------------------------------------
 
 function buildCubeGroup(model: CubeModel): THREE.Group {
   const group = new THREE.Group();
 
-  // Shared black material for cubie bodies
-  const blackMat = new THREE.MeshBasicMaterial({ color: '#111111' });
-
-  const cubieGeom = new THREE.BoxGeometry(HALF * 2, HALF * 2, HALF * 2);
-
   for (const block of model.blocks) {
     const [gx, gy, gz] = block.position;
-
     const cubieGroup = new THREE.Group();
+    cubieGroup.position.set(gx * SPACING, gy * SPACING, gz * SPACING);
 
-    if (block.rotation) {
-      // Orbital rotation: apply the face-move quaternion to both position and
-      // orientation so the cubie sweeps around the cube centre correctly.
-      const worldPos = new THREE.Vector3(gx * SPACING, gy * SPACING, gz * SPACING);
-      worldPos.applyQuaternion(block.rotation);
-      cubieGroup.position.copy(worldPos);
-      cubieGroup.quaternion.copy(block.rotation);
-    } else {
-      cubieGroup.position.set(gx * SPACING, gy * SPACING, gz * SPACING);
-    }
+    cubieGroup.add(new THREE.Mesh(CUBIE_GEOM, BLACK_MAT));
 
-    // Black cubie body
-    cubieGroup.add(new THREE.Mesh(cubieGeom, blackMat));
-
-    // Sticker quads for each colored face
     for (const [faceKey, color] of Object.entries(block.faceColors) as [FaceKey, string][]) {
-      const normal = FACE_NORMAL[faceKey];
-
-      // Build an axis-aligned quad for this face
-      const stickerW = HALF * 2 - STICKER_INSET * 2;
-      const stickerGeom = new THREE.PlaneGeometry(stickerW, stickerW);
-
-      // Rotate plane to face the correct direction
-      // PlaneGeometry faces +Z by default
-      const rotation = new THREE.Quaternion().setFromUnitVectors(
-        new THREE.Vector3(0, 0, 1),
-        normal,
+      cubieGroup.add(
+        new THREE.Mesh(
+          getStickerGeom(faceKey),
+          getStickerMat(color),
+        ),
       );
-      stickerGeom.applyQuaternion(rotation);
-
-      // Lift slightly off the surface
-      const offset = normal.clone().multiplyScalar(HALF + STICKER_LIFT);
-      stickerGeom.translate(offset.x, offset.y, offset.z);
-
-      const stickerMat = new THREE.MeshBasicMaterial({
-        color,
-        side: THREE.FrontSide,
-      });
-
-      cubieGroup.add(new THREE.Mesh(stickerGeom, stickerMat));
     }
 
     group.add(cubieGroup);
@@ -115,25 +116,26 @@ interface DragState {
 
 interface Props {
   model: CubeModel;
-  rotation: THREE.Quaternion;
-  onRotate: (q: THREE.Quaternion) => void;
+  rotationRef: React.MutableRefObject<THREE.Quaternion>;
+  animStateRef: React.MutableRefObject<AnimState>;
 }
 
-export default function CubeRenderer({ model, rotation, onRotate }: Props) {
+export default function CubeRenderer({ model, rotationRef, animStateRef }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Hold references to Three.js objects that must survive re-renders
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const cubeGroupRef = useRef<THREE.Group | null>(null);
+  /** Parallel array matching model.blocks — cubie groups for imperative animation. */
+  const cubieGroupsRef = useRef<THREE.Group[]>([]);
   const animFrameRef = useRef<number>(0);
   const dragRef = useRef<DragState>({ active: false, lastX: 0, lastY: 0 });
-  // Ref always mirrors the rotation prop so event handlers and the rebuild
-  // effect can read the current value without declaring it as a dependency.
-  const rotationRef = useRef(rotation);
-  rotationRef.current = rotation;
+
+  // Always mirrors model for use inside the RAF loop.
+  const modelRef = useRef(model);
+  modelRef.current = model;
 
   // ── Initialize renderer, scene, camera once ──────────────────────────────
   useEffect(() => {
@@ -155,6 +157,8 @@ export default function CubeRenderer({ model, rotation, onRotate }: Props) {
     return () => {
       cancelAnimationFrame(animFrameRef.current);
       renderer.dispose();
+      for (const mat of stickerMatCache.values()) mat.dispose();
+      stickerMatCache.clear();
     };
   }, []);
 
@@ -163,20 +167,18 @@ export default function CubeRenderer({ model, rotation, onRotate }: Props) {
     const scene = sceneRef.current;
     if (!scene) return;
 
+    // A new model means a move has committed — clear stale animation state
+    // so the render loop doesn't apply an orbital transform on top of the
+    // already-committed cubie positions.
+    animStateRef.current = null;
+
     if (cubeGroupRef.current) scene.remove(cubeGroupRef.current);
 
     const group = buildCubeGroup(model);
-    // Apply the current rotation from ref — avoids adding rotation to deps
-    // (which would trigger a full rebuild on every mouse-drag frame).
-    group.quaternion.copy(rotationRef.current);
     scene.add(group);
     cubeGroupRef.current = group;
-  }, [model]);
-
-  // ── Update cube orientation when rotation prop changes ───────────────────
-  useEffect(() => {
-    cubeGroupRef.current?.quaternion.copy(rotation);
-  }, [rotation]);
+    cubieGroupsRef.current = group.children as THREE.Group[];
+  }, [model, animStateRef]);
 
   // ── Render loop ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -188,23 +190,36 @@ export default function CubeRenderer({ model, rotation, onRotate }: Props) {
       const container = containerRef.current;
       if (!renderer || !scene || !camera || !container) return;
 
-      // Read size from the wrapper div, not the canvas. The canvas is a
-      // replaced element whose intrinsic size (canvas.width attribute) would
-      // prevent the grid cell from shrinking (min-width: auto). The wrapper
-      // div has min-width: 0 so it tracks available space correctly.
+      // Apply whole-cube drag/reset rotation — pure ref, zero React overhead.
+      if (cubeGroupRef.current) {
+        cubeGroupRef.current.quaternion.copy(rotationRef.current);
+      }
+
+      // Apply move animation imperatively — no React state, no re-renders.
+      const anim = animStateRef.current;
+      if (anim) {
+        const { indices, q } = anim;
+        const blocks = modelRef.current.blocks;
+        for (const i of indices) {
+          const cubieGroup = cubieGroupsRef.current[i];
+          if (!cubieGroup) continue;
+          const [gx, gy, gz] = blocks[i].position;
+          const worldPos = new THREE.Vector3(gx * SPACING, gy * SPACING, gz * SPACING);
+          worldPos.applyQuaternion(q);
+          cubieGroup.position.copy(worldPos);
+          cubieGroup.quaternion.copy(q);
+        }
+      }
+
       const w = container.clientWidth;
       const h = container.clientHeight;
       if (w > 0 && h > 0) {
         const size = renderer.getSize(new THREE.Vector2());
         if (size.x !== w || size.y !== h) {
-          // updateStyle=true: Three.js sets canvas.style.width/height in px,
-          // keeping the canvas sized to the container.
           renderer.setSize(w, h);
         }
 
         const aspect = w / h;
-        // When portrait (aspect < 1), widen the vertical FOV so the cube
-        // always fits within min(width, height) rather than just the height.
         const fov =
           aspect >= 1
             ? BASE_FOV
@@ -222,7 +237,7 @@ export default function CubeRenderer({ model, rotation, onRotate }: Props) {
     };
     animate();
     return () => cancelAnimationFrame(animFrameRef.current);
-  }, []);
+  }, [animStateRef]);
 
   // ── Mouse drag handling ───────────────────────────────────────────────────
   useEffect(() => {
@@ -242,19 +257,17 @@ export default function CubeRenderer({ model, rotation, onRotate }: Props) {
       drag.lastX = e.clientX;
       drag.lastY = e.clientY;
 
-      // Convert pixel delta to rotation angle (radians)
       const sensitivity = 0.005;
-      const angleX = dy * sensitivity; // drag up/down → rotate around X
-      const angleY = dx * sensitivity; // drag left/right → rotate around Y
+      const angleX = dy * sensitivity;
+      const angleY = dx * sensitivity;
 
-      // Build delta quaternion in world space
       const qX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), angleX);
       const qY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), angleY);
       const delta = qY.multiply(qX);
 
-      // Compose: new = delta * current  (world-space rotation)
       const next = delta.multiply(rotationRef.current.clone());
-      onRotate(next);
+      // Write to the shared ref — the RAF loop picks it up on the next frame.
+      rotationRef.current = next;
     };
 
     const onMouseUp = () => {
@@ -270,7 +283,7 @@ export default function CubeRenderer({ model, rotation, onRotate }: Props) {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, [onRotate]);
+  }, []);
 
   return (
     <div ref={containerRef} style={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>

@@ -46,6 +46,18 @@ export class AnimationService {
     this.contexts.clear();
   }
 
+  /**
+   * Immediately end all live animations (calling onEnd() on each) without
+   * stopping the RAF loop.  Use this to flush in-flight animations before a
+   * reset, while keeping the service running for the next batch.
+   */
+  cancelAll(): void {
+    for (const ctx of this.contexts) {
+      ctx.animation.onEnd();
+    }
+    this.contexts.clear();
+  }
+
   submit(animation: IAnimation, duration: number): void {
     if (!this.running) {
       throw new Error('AnimationService: cannot submit to a stopped service');

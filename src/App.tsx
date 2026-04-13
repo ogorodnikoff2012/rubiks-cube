@@ -95,14 +95,21 @@ export default function App() {
   const queue = useCubeQueue(animService);
 
   // ── Whole-cube visual rotation (renderer-only, not part of CubeModel) ─────
-  const [rotation, setRotation] = useState(() => INITIAL_ROTATION.clone());
-  const rotationRef = useRef(rotation);
-  rotationRef.current = rotation;
+  //
+  // Pure ref — no React state.  The renderer's RAF loop reads it every frame
+  // and applies it to the Three.js group, so any mutation is picked up
+  // immediately without going through React at all.
+  //
+  // Drag updates it directly inside CubeRenderer.
+  // resetRotation animates it via RotationAnimation whose callback mutates it.
+  const rotationRef = useRef(INITIAL_ROTATION.clone());
 
   const handleResetRotation = useCallback(() => {
     animService.submit(
       new EasedAnimation(
-        new RotationAnimation(rotationRef.current.clone(), INITIAL_ROTATION.clone(), setRotation),
+        new RotationAnimation(rotationRef.current.clone(), INITIAL_ROTATION.clone(), (q) => {
+          rotationRef.current = q; // RAF loop picks this up on the next frame
+        }),
         easeInOutCubic,
       ),
       RESET_ROTATION_MS,
@@ -274,7 +281,11 @@ export default function App() {
           <div style={centreSlot}>
             <MovePair cw="L" ccw="L'" onMove={move} />
           </div>
-          <CubeRenderer model={queue.cube} rotation={rotation} onRotate={setRotation} />
+          <CubeRenderer
+            model={queue.cube}
+            rotationRef={rotationRef}
+            animStateRef={queue.animStateRef}
+          />
           <div style={centreSlot}>
             <MovePair cw="R" ccw="R'" onMove={move} />
           </div>
