@@ -11,6 +11,7 @@ import { FACE_MOVES } from './model/moves';
 import type { MoveId } from './model/moves';
 import { useCubeQueue } from './hooks/useCubeQueue';
 import type { CubeAction } from './hooks/useCubeQueue';
+import { useIsMobile } from './hooks/useIsMobile';
 import { DEFAULT_THEME, THEMES } from './themes/themes';
 import type { Theme } from './themes/themes';
 import { SOLVED_COLORS } from './model/cube';
@@ -99,6 +100,11 @@ export default function App() {
   // Drag updates it directly inside CubeRenderer.
   // resetRotation animates it via RotationAnimation whose callback mutates it.
   const rotationRef = useRef(INITIAL_ROTATION.clone());
+
+  const isMobile = useIsMobile();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
 
   const handleResetRotation = useCallback(() => {
     animService.submit(
@@ -217,6 +223,23 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [move, handleUndo, handleRedo, cancel, isBusy]);
 
+  // Close hamburger menu when viewport grows past the mobile breakpoint.
+  useEffect(() => {
+    if (!isMobile) setIsMenuOpen(false);
+  }, [isMobile]);
+
+  // Dismiss hamburger menu when tapping outside the panel.
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const outsideMenu = !menuRef.current?.contains(e.target as Node);
+      const outsideHamburger = !hamburgerRef.current?.contains(e.target as Node);
+      if (outsideMenu && outsideHamburger) setIsMenuOpen(false);
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => window.removeEventListener('pointerdown', onPointerDown);
+  }, [isMenuOpen]);
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
@@ -228,53 +251,96 @@ export default function App() {
         overflow: 'hidden',
       }}
     >
-      <header style={headerStyle}>
-        <h1 style={{ fontSize: '1.1rem', fontWeight: 600, letterSpacing: '0.05em', flex: 1 }}>
+      <header style={{ ...headerStyle, position: 'relative' }}>
+        <h1 style={{ fontSize: '1.1rem', fontWeight: 600, letterSpacing: '0.05em', flex: isMobile ? 0 : 1 }}>
           Rubik&rsquo;s Cube
         </h1>
-        <span style={{ fontSize: '0.8rem', color: '#8899aa', fontFamily: 'monospace' }}>
-          {queue.historyIndex}/{queue.totalMoves}
-          {queue.pendingCount > 0 && ` +${queue.pendingCount}`}
-        </span>
-        <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>
-          ↩ Undo
-        </button>
-        <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>
-          Redo ↪
-        </button>
-        <button onClick={handleScramble} style={resetBtnStyle}>
-          Scramble
-        </button>
-        <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>
-          Solve
-        </button>
-        <button onClick={queue.resetCube} style={resetBtnStyle}>
-          Reset
-        </button>
-        <button onClick={handleResetRotation} style={resetBtnStyle}>
-          Reset rotation
-        </button>
-        <span style={dividerStyle} />
-        {(['x', "x'", 'y', "y'", 'z', "z'"] as const).map((id) => (
-          <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>
-            {id}
-          </button>
-        ))}
-        <span style={dividerStyle} />
-        <select
-          value={THEMES.find((t) => t.theme === theme)?.name ?? THEMES[0].name}
-          onChange={(e) => setTheme(THEMES.find((t) => t.name === e.target.value)?.theme || DEFAULT_THEME)}
-          style={themeSelectStyle}
-        >
-          {THEMES.map(({ name }) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
-        <button onClick={() => setIsPanelOpen((v) => !v)} style={iconBtnStyle}>
-          {isPanelOpen ? 'Solver ◀' : 'Solver ▶'}
-        </button>
+
+        {isMobile ? (
+          <>
+            <span style={{ fontSize: '0.8rem', color: '#8899aa', fontFamily: 'monospace', marginLeft: 'auto' }}>
+              {queue.historyIndex}/{queue.totalMoves}
+              {queue.pendingCount > 0 && ` +${queue.pendingCount}`}
+            </span>
+            <button
+              ref={hamburgerRef}
+              onClick={() => setIsMenuOpen((v) => !v)}
+              style={hamburgerBtnStyle}
+              aria-label="Menu"
+            >
+              {isMenuOpen ? '✕' : '☰'}
+            </button>
+            {isMenuOpen && (
+              <div ref={menuRef} style={menuPanelStyle} onClick={() => setIsMenuOpen(false)}>
+                <div style={menuRowStyle}>
+                  <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>↩ Undo</button>
+                  <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>Redo ↪</button>
+                </div>
+                <div style={menuRowStyle}>
+                  <button onClick={handleScramble} style={resetBtnStyle}>Scramble</button>
+                  <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>Solve</button>
+                  <button onClick={queue.resetCube} style={resetBtnStyle}>Reset</button>
+                  <button onClick={handleResetRotation} style={resetBtnStyle}>Reset rotation</button>
+                </div>
+                <div style={menuRowStyle}>
+                  {(['x', "x'", 'y', "y'", 'z', "z'"] as const).map((id) => (
+                    <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>{id}</button>
+                  ))}
+                </div>
+                <div style={menuRowStyle}>
+                  <select
+                    value={THEMES.find((t) => t.theme === theme)?.name ?? THEMES[0].name}
+                    onChange={(e) =>
+                      setTheme(THEMES.find((t) => t.name === e.target.value)?.theme || DEFAULT_THEME)
+                    }
+                    style={{ ...themeSelectStyle, flex: 1 }}
+                  >
+                    {THEMES.map(({ name }) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={menuRowStyle}>
+                  <button onClick={() => setIsPanelOpen((v) => !v)} style={iconBtnStyle}>
+                    {isPanelOpen ? 'Solver ◀' : 'Solver ▶'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <span style={{ fontSize: '0.8rem', color: '#8899aa', fontFamily: 'monospace' }}>
+              {queue.historyIndex}/{queue.totalMoves}
+              {queue.pendingCount > 0 && ` +${queue.pendingCount}`}
+            </span>
+            <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>↩ Undo</button>
+            <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>Redo ↪</button>
+            <button onClick={handleScramble} style={resetBtnStyle}>Scramble</button>
+            <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>Solve</button>
+            <button onClick={queue.resetCube} style={resetBtnStyle}>Reset</button>
+            <button onClick={handleResetRotation} style={resetBtnStyle}>Reset rotation</button>
+            <span style={dividerStyle} />
+            {(['x', "x'", 'y', "y'", 'z', "z'"] as const).map((id) => (
+              <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>{id}</button>
+            ))}
+            <span style={dividerStyle} />
+            <select
+              value={THEMES.find((t) => t.theme === theme)?.name ?? THEMES[0].name}
+              onChange={(e) =>
+                setTheme(THEMES.find((t) => t.name === e.target.value)?.theme || DEFAULT_THEME)
+              }
+              style={themeSelectStyle}
+            >
+              {THEMES.map(({ name }) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+            <button onClick={() => setIsPanelOpen((v) => !v)} style={iconBtnStyle}>
+              {isPanelOpen ? 'Solver ◀' : 'Solver ▶'}
+            </button>
+          </>
+        )}
       </header>
 
       <div style={bodyStyle}>
@@ -417,4 +483,35 @@ const dividerStyle: React.CSSProperties = {
   alignSelf: 'stretch',
   background: '#1e2e4a',
   margin: '0 4px',
+};
+
+const hamburgerBtnStyle: React.CSSProperties = {
+  padding: '6px 12px',
+  fontSize: '1.1rem',
+  background: 'transparent',
+  color: '#aac',
+  border: '1px solid #2a3a5a',
+  borderRadius: 4,
+  cursor: 'pointer',
+};
+
+const menuPanelStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: '100%',
+  left: 0,
+  right: 0,
+  background: '#16213e',
+  borderBottom: '1px solid #0f3460',
+  padding: '12px 16px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 10,
+  zIndex: 100,
+};
+
+const menuRowStyle: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 8,
+  alignItems: 'center',
 };
