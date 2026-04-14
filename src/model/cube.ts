@@ -54,14 +54,16 @@ function cross(a: Vec3, b: Vec3): Vec3 {
  * // grid[0][0] is the top-left sticker of the green face
  * ```
  */
-export function getFaceColors(cube: CubeModel, face: FaceKey, upFace: FaceKey): string[][] {
+export function getFaceColors(cube: CubeModel, face: FaceKey, upFace: FaceKey): ColorCode[][] {
   const n = FACE_NORMALS[face];
   const up = FACE_NORMALS[upFace];
   // Viewer stands outside, looking inward along -n.
   // Camera right = viewDir × upDir = (-n) × up
   const right = cross([-n[0], -n[1], -n[2]], up);
 
-  const grid: string[][] = [
+  // Initialized with '' as a build-time sentinel; all 9 cells are filled
+  // before the function returns (every face of a valid CubeModel is complete).
+  const grid: (ColorCode | '')[][] = [
     ['', '', ''],
     ['', '', ''],
     ['', '', ''],
@@ -76,7 +78,7 @@ export function getFaceColors(cube: CubeModel, face: FaceKey, upFace: FaceKey): 
     grid[row][col] = color;
   }
 
-  return grid;
+  return grid as ColorCode[][];
 }
 
 // --------------------------------------------------------------------------

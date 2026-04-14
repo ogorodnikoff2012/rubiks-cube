@@ -168,6 +168,10 @@ export default function CubeRenderer({ model, rotationRef, animStateRef, theme }
 
     if (cubeGroupRef.current) scene.remove(cubeGroupRef.current);
 
+    // Flush stale materials so previous-theme hex values don't accumulate in the cache.
+    for (const mat of stickerMatCache.values()) mat.dispose();
+    stickerMatCache.clear();
+
     const group = buildCubeGroup(model, theme);
     scene.add(group);
     cubeGroupRef.current = group;
