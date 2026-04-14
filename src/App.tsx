@@ -262,6 +262,9 @@ export default function App() {
               {queue.historyIndex}/{queue.totalMoves}
               {queue.pendingCount > 0 && ` +${queue.pendingCount}`}
             </span>
+            {(['x', "x'", 'y', "y'", 'z', "z'"] as const).map((id) => (
+              <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>{id}</button>
+            ))}
             <button
               ref={hamburgerRef}
               onClick={() => setIsMenuOpen((v) => !v)}
@@ -281,11 +284,6 @@ export default function App() {
                   <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>Solve</button>
                   <button onClick={queue.resetCube} style={resetBtnStyle}>Reset</button>
                   <button onClick={handleResetRotation} style={resetBtnStyle}>Reset rotation</button>
-                </div>
-                <div style={menuRowStyle}>
-                  {(['x', "x'", 'y', "y'", 'z', "z'"] as const).map((id) => (
-                    <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>{id}</button>
-                  ))}
                 </div>
                 <div style={menuRowStyle} onClick={(e) => e.stopPropagation()}>
                   <select
@@ -408,7 +406,7 @@ const mainGridStyle: React.CSSProperties = {
   flex: 1,
   display: 'grid',
   gridTemplateColumns: '64px 1fr 64px',
-  gridTemplateRows: '56px 1fr 56px',
+  gridTemplateRows: '130px 1fr 130px',
   overflow: 'hidden',
 };
 
@@ -420,7 +418,7 @@ const centreSlot: React.CSSProperties = {
 
 const moveBtnBase: React.CSSProperties = {
   width: 44,
-  padding: '4px 0',
+  padding: '24px 0',
   fontSize: '0.8rem',
   fontWeight: 700,
   fontFamily: 'monospace',
