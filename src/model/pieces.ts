@@ -1,4 +1,4 @@
-import type { CubeModel, FaceKey } from '../types/cube';
+import type { CubeModel, FaceKey, ColorCode } from '../types/cube';
 
 export type CenterLocation = [FaceKey];
 
@@ -26,9 +26,9 @@ export type CornerLocation = [FaceKey, FaceKey, FaceKey];
  *
  * Returns `[faceOfCol]`, or throws if no such piece exists (invalid cube state).
  */
-export function findCenter(cube: CubeModel, col: string): CenterLocation {
+export function findCenter(cube: CubeModel, col: ColorCode): CenterLocation {
   for (const block of cube.blocks) {
-    const entries = Object.entries(block.faceColors) as [FaceKey, string][];
+    const entries = Object.entries(block.faceColors) as [FaceKey, ColorCode][];
     if (entries.length !== 1) continue;
     const face = entries.find(([, c]) => c === col)?.[0];
     if (face !== undefined) return [face];
@@ -42,9 +42,9 @@ export function findCenter(cube: CubeModel, col: string): CenterLocation {
  * Returns `[faceOfColA, faceOfColB]`, or throws if no such piece exists
  * (which would indicate an invalid cube state).
  */
-export function findEdge(cube: CubeModel, colA: string, colB: string): EdgeLocation {
+export function findEdge(cube: CubeModel, colA: ColorCode, colB: ColorCode): EdgeLocation {
   for (const block of cube.blocks) {
-    const entries = Object.entries(block.faceColors) as [FaceKey, string][];
+    const entries = Object.entries(block.faceColors) as [FaceKey, ColorCode][];
     if (entries.length !== 2) continue;
     const faceA = entries.find(([, c]) => c === colA)?.[0];
     const faceB = entries.find(([, c]) => c === colB)?.[0];
@@ -61,12 +61,12 @@ export function findEdge(cube: CubeModel, colA: string, colB: string): EdgeLocat
  */
 export function findCorner(
   cube: CubeModel,
-  colA: string,
-  colB: string,
-  colC: string,
+  colA: ColorCode,
+  colB: ColorCode,
+  colC: ColorCode,
 ): CornerLocation {
   for (const block of cube.blocks) {
-    const entries = Object.entries(block.faceColors) as [FaceKey, string][];
+    const entries = Object.entries(block.faceColors) as [FaceKey, ColorCode][];
     if (entries.length !== 3) continue;
     const faceA = entries.find(([, c]) => c === colA)?.[0];
     const faceB = entries.find(([, c]) => c === colB)?.[0];

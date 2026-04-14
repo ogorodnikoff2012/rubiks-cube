@@ -1,12 +1,7 @@
 import { getFaceColors, SOLVED_COLORS } from '../model/cube';
-import {
-  applyMoveToModel,
-  INVERSE_MOVE,
-  optimizeMoves,
-  repeatMove,
-} from '../model/moves';
+import { applyMoveToModel, INVERSE_MOVE, optimizeMoves, repeatMove } from '../model/moves';
 import type { MoveId } from '../model/moves';
-import type { CubeModel, FaceKey } from '../types/cube';
+import type { CubeModel, FaceKey, ColorCode } from '../types/cube';
 import { findCenter, findCorner, findEdge } from '../model/pieces';
 
 export interface SolverStep {
@@ -100,16 +95,17 @@ function step1WhiteCross(cube: CubeModel): MoveId[] {
       result.push(m);
       cube = applyMoveToModel(cube, m);
       if (result.length >= 1000) {
-        throw new Error("Internal error, infinite loop");
+        throw new Error('Internal error, infinite loop');
       }
     }
   };
 
   const shiftToFace: FaceKey[] = ['F', 'R', 'B', 'L'];
-  const faceToShift: Partial<Record<FaceKey, number>> =
-    Object.fromEntries(shiftToFace.map((face, shift) => [face, shift]));
+  const faceToShift: Partial<Record<FaceKey, number>> = Object.fromEntries(
+    shiftToFace.map((face, shift) => [face, shift]),
+  );
 
-  for (const frontColor of shiftToFace.map(face => SOLVED_COLORS[face])) {
+  for (const frontColor of shiftToFace.map((face) => SOLVED_COLORS[face])) {
     while (true) {
       const loc = findEdge(cube, SOLVED_COLORS.U, frontColor);
 
@@ -119,8 +115,8 @@ function step1WhiteCross(cube: CubeModel): MoveId[] {
 
       if (loc[0] === 'U') {
         const shift = ensure(faceToShift[loc[1]]);
-        addMove(...repeatMove("U", shift));
-        addMove("F");
+        addMove(...repeatMove('U', shift));
+        addMove('F');
         addMove(...repeatMove("U'", shift));
         addMove("F'");
         continue;
@@ -141,7 +137,7 @@ function step1WhiteCross(cube: CubeModel): MoveId[] {
       if (loc[1] === 'D') {
         const shift = ensure(faceToShift[loc[0]]);
         addMove(...repeatMove("D'", shift));
-        addMove("D", "R", "F'", "R'");
+        addMove('D', 'R', "F'", "R'");
         continue;
       }
 
@@ -150,9 +146,8 @@ function step1WhiteCross(cube: CubeModel): MoveId[] {
 
       addMove(...repeatMove("U'", shift));
       addMove(dir === 1 ? loc[1] : INVERSE_MOVE[loc[1]]);
-      addMove(...repeatMove("U", shift));
+      addMove(...repeatMove('U', shift));
     }
-
 
     addMove("y'");
   }
@@ -196,7 +191,7 @@ function step2WhiteCorners(cube: CubeModel): MoveId[] {
       if (loc[0] === 'D') {
         const shift = ensure(faceToShift[loc[1]]);
         addMove(...repeatMove("D'", shift));
-        addMove("R'", "D", "R");
+        addMove("R'", 'D', 'R');
         continue;
       }
 
@@ -205,19 +200,19 @@ function step2WhiteCorners(cube: CubeModel): MoveId[] {
         continue;
       }
       if (loc[2] === 'U') {
-        addMove(loc[0], "D", INVERSE_MOVE[loc[0]]);
+        addMove(loc[0], 'D', INVERSE_MOVE[loc[0]]);
         continue;
       }
       if (loc[1] === 'D') {
         const shift = ensure(faceToShift[loc[2]]);
         addMove(...repeatMove("D'", shift));
-        addMove("R'", "D", "R");
+        addMove("R'", 'D', 'R');
         continue;
       }
       if (loc[2] === 'D') {
         const shift = ensure(faceToShift[loc[1]]);
         addMove(...repeatMove("D'", shift));
-        addMove("D", "F", "D'", "F'");
+        addMove('D', 'F', "D'", "F'");
         continue;
       }
 
@@ -265,14 +260,14 @@ function step3MiddleLayer(cube: CubeModel): MoveId[] {
       if (loc[0] === 'D') {
         const shift = ensure(faceToShift[loc[1]]);
         addMove(...repeatMove("D'", shift));
-        addMove("D", "D", "F", "D'", "F'", "D'", "R'", "D", "R");
+        addMove('D', 'D', 'F', "D'", "F'", "D'", "R'", 'D', 'R');
         continue;
       }
 
       if (loc[1] === 'D') {
         const shift = ensure(faceToShift[loc[0]]);
         addMove(...repeatMove("D'", shift));
-        addMove("D'", "R'", "D", "R", "D", "F", "D'", "F'");
+        addMove("D'", "R'", 'D', 'R', 'D', 'F', "D'", "F'");
         continue;
       }
 
@@ -290,8 +285,8 @@ function step3MiddleLayer(cube: CubeModel): MoveId[] {
       })(frontShift, rightShift);
 
       addMove(...repeatMove("y'", shift));
-      addMove("R'", "D", "R", "D", "F", "D'", "F'");
-      addMove(...repeatMove("y", shift));
+      addMove("R'", 'D', 'R', 'D', 'F', "D'", "F'");
+      addMove(...repeatMove('y', shift));
     }
     addMove("y'");
   }
@@ -311,7 +306,7 @@ function step4YellowCross(cube: CubeModel): MoveId[] {
     }
   };
 
-  addMove("x", "x");
+  addMove('x', 'x');
 
   const kUpColor = SOLVED_COLORS.D;
   while (true) {
@@ -323,7 +318,11 @@ function step4YellowCross(cube: CubeModel): MoveId[] {
     const west = upFace[1][0] === kUpColor;
 
     const bitset = makeBitset(north, east, south, west);
-    const NORTH = 8, EAST = 4, SOUTH = 2, WEST = 1, NONE = 0;
+    const NORTH = 8,
+      EAST = 4,
+      SOUTH = 2,
+      WEST = 1,
+      NONE = 0;
 
     if (bitset === (NORTH | EAST | SOUTH | WEST)) {
       break;
@@ -334,16 +333,16 @@ function step4YellowCross(cube: CubeModel): MoveId[] {
         addMove("U'");
         break;
       case EAST | SOUTH:
-        addMove("U", "U");
+        addMove('U', 'U');
         break;
       case SOUTH | WEST:
-        addMove("U");
+        addMove('U');
         break;
       case NORTH | SOUTH:
       case EAST | WEST:
       case WEST | NORTH:
       case NONE:
-        addMove("F", "U", "R", "U'", "R'", "F'");
+        addMove('F', 'U', 'R', "U'", "R'", "F'");
         break;
       default:
         throw new Error(`Unexpected state: N:${north} E:${east} S:${south} W:${west}`);
@@ -354,7 +353,7 @@ function step4YellowCross(cube: CubeModel): MoveId[] {
 }
 
 function step5OrderedYellowCross(cube: CubeModel): MoveId[] {
-  const algorithm: MoveId[] = ["R", "U", "R'", "U", "R", "U", "U", "R'", "U"];
+  const algorithm: MoveId[] = ['R', 'U', "R'", 'U', 'R', 'U', 'U', "R'", 'U'];
 
   const shiftToFace: FaceKey[] = ['F', 'R', 'B', 'L'];
 
@@ -372,7 +371,7 @@ function step5OrderedYellowCross(cube: CubeModel): MoveId[] {
   {
     const shift = areCyclicShifts(actualToExpected, [0, 1, 2, 3]);
     if (shift >= 0) {
-      return repeatMove("U", shift);
+      return repeatMove('U', shift);
     }
   }
 
@@ -384,7 +383,7 @@ function step5OrderedYellowCross(cube: CubeModel): MoveId[] {
 
     if (shift >= 0) {
       return optimizeMoves([
-        ...repeatMove("U", shift),
+        ...repeatMove('U', shift),
         ...repeatMove("y'", i),
         ...algorithm,
         ...repeatMove("y'", 4 - i),
@@ -396,7 +395,7 @@ function step5OrderedYellowCross(cube: CubeModel): MoveId[] {
     const shift = areCyclicShifts(actualToExpected, [3, 2, 1, 0]);
     if (shift >= 0) {
       return optimizeMoves([
-        ...repeatMove("U", shift),
+        ...repeatMove('U', shift),
         ...algorithm,
         ...repeatMove("y'", 2),
         ...algorithm,
@@ -405,7 +404,7 @@ function step5OrderedYellowCross(cube: CubeModel): MoveId[] {
     }
   }
 
-  throw new Error(`Unexpected colors: [${actualColors.join(',')}]`)
+  throw new Error(`Unexpected colors: [${actualColors.join(',')}]`);
 }
 
 // --------------------------------------------------------------------------
@@ -428,12 +427,12 @@ function step6YellowCornersPositioning(cube: CubeModel): MoveId[] {
   const yellow = SOLVED_COLORS.D;
 
   // algoA: UFR is anchor, cycles URB to ULF
-  const algoA: MoveId[] = ["L'", "R", "U", "R'", "U'", "L", "U", "R", "U'", "R'"];
+  const algoA: MoveId[] = ["L'", 'R', 'U', "R'", "U'", 'L', 'U', 'R', "U'", "R'"];
   // algoB: ULF is anchor, cycles UBL to UFR
   // const algoB: MoveId[] = ["R", "L'", "U'", "L", "U", "R'", "U'", "L'", "U", "L"];
 
   /** Color on the centre of `face` (read dynamically — y-rotations may have shifted centres). */
-  function getCenterColor(face: FaceKey): string {
+  function getCenterColor(face: FaceKey): ColorCode {
     return getFaceColors(cube, face, 'U')[1][1];
   }
 
@@ -463,7 +462,7 @@ function step6YellowCornersPositioning(cube: CubeModel): MoveId[] {
 
   while (true) {
     const corners = slots.map(([faceA, faceB]) => isCorrectSlot(faceA, faceB));
-    const correctCount = corners.filter(c => c).length;
+    const correctCount = corners.filter((c) => c).length;
 
     if (correctCount === 4) {
       break;
@@ -478,7 +477,7 @@ function step6YellowCornersPositioning(cube: CubeModel): MoveId[] {
       const shift = corners.indexOf(true);
       addMove(...repeatMove("y'", shift));
       addMove(...algoA);
-      addMove(...repeatMove("y", shift));
+      addMove(...repeatMove('y', shift));
       continue;
     }
 
@@ -502,7 +501,7 @@ function step7YellowCornersOrientation(cube: CubeModel): MoveId[] {
 
   const yellow = SOLVED_COLORS.D;
 
-  function findYellowFace(): ('U'|'F'|'R')&FaceKey {
+  function findYellowFace(): ('U' | 'F' | 'R') & FaceKey {
     const frontFace = getFaceColors(cube, 'F', 'U');
     if (frontFace[0][2] === yellow) {
       return 'F';
@@ -521,7 +520,7 @@ function step7YellowCornersOrientation(cube: CubeModel): MoveId[] {
     throw new Error('Yellow face not found');
   }
 
-  for (let i = 0; i < 4; addMove("U"), ++i) {
+  for (let i = 0; i < 4; addMove('U'), ++i) {
     const face = findYellowFace();
 
     if (face === 'U') {
@@ -529,15 +528,14 @@ function step7YellowCornersOrientation(cube: CubeModel): MoveId[] {
     }
 
     if (face === 'F') {
-      addMove("R", "F'", "R'", "F", "R", "F'", "R'", "F");
+      addMove('R', "F'", "R'", 'F', 'R', "F'", "R'", 'F');
     } else {
-      addMove("F'", "R", "F", "R'", "F'", "R", "F", "R'");
+      addMove("F'", 'R', 'F', "R'", "F'", 'R', 'F', "R'");
     }
   }
 
   return optimizeMoves(result);
 }
-
 
 // --------------------------------------------------------------------------
 // Public API
@@ -568,7 +566,7 @@ export function solveLayerByLayer(cube: CubeModel): SolverStep[] {
     }
   } catch (e) {
     result.push({
-      label: "Failed to solve the cube: " + e,
+      label: 'Failed to solve the cube: ' + e,
       moves: [],
     });
   }

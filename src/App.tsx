@@ -13,6 +13,8 @@ import { useCubeQueue } from './hooks/useCubeQueue';
 import type { CubeAction } from './hooks/useCubeQueue';
 import { DEFAULT_THEME, NEON_THEME } from './themes/themes';
 import type { Theme } from './themes/themes';
+import { SOLVED_COLORS } from './model/cube';
+import type { FaceKey } from './types/cube';
 
 const SCRAMBLE_MOVES = 50;
 
@@ -44,16 +46,6 @@ const HOTKEYS: Record<string, MoveId> = {
   Z: "z'",
 };
 
-// Face accent colors for move buttons.
-const FACE_COLOR: Record<string, string> = {
-  R: '#b71234',
-  L: '#ff5800',
-  U: '#ffffff',
-  D: '#ffd500',
-  F: '#009b48',
-  B: '#0046ad',
-};
-
 // --------------------------------------------------------------------------
 // Small presentational components
 // --------------------------------------------------------------------------
@@ -62,11 +54,12 @@ interface MovePairProps {
   cw: MoveId;
   ccw: MoveId;
   onMove: (id: MoveId) => void;
+  theme: Theme;
 }
 
-function MovePair({ cw, ccw, onMove }: MovePairProps) {
-  const face = cw.replace("'", '');
-  const accent = FACE_COLOR[face] ?? '#888';
+function MovePair({ cw, ccw, onMove, theme }: MovePairProps) {
+  const face = cw.replace("'", '') as FaceKey;
+  const accent = theme[SOLVED_COLORS[face]] ?? '#888';
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
       {[cw, ccw].map((id) => (
@@ -287,13 +280,13 @@ export default function App() {
           {/* Row 1 */}
           <div />
           <div style={centreSlot}>
-            <MovePair cw="U" ccw="U'" onMove={move} />
+            <MovePair cw="U" ccw="U'" onMove={move} theme={theme} />
           </div>
           <div />
 
           {/* Row 2 */}
           <div style={centreSlot}>
-            <MovePair cw="L" ccw="L'" onMove={move} />
+            <MovePair cw="L" ccw="L'" onMove={move} theme={theme} />
           </div>
           <CubeRenderer
             model={queue.cube}
@@ -302,18 +295,18 @@ export default function App() {
             theme={theme}
           />
           <div style={centreSlot}>
-            <MovePair cw="R" ccw="R'" onMove={move} />
+            <MovePair cw="R" ccw="R'" onMove={move} theme={theme} />
           </div>
 
           {/* Row 3 – F bottom-left, D centre, B bottom-right */}
           <div style={centreSlot}>
-            <MovePair cw="F" ccw="F'" onMove={move} />
+            <MovePair cw="F" ccw="F'" onMove={move} theme={theme} />
           </div>
           <div style={centreSlot}>
-            <MovePair cw="D" ccw="D'" onMove={move} />
+            <MovePair cw="D" ccw="D'" onMove={move} theme={theme} />
           </div>
           <div style={centreSlot}>
-            <MovePair cw="B" ccw="B'" onMove={move} />
+            <MovePair cw="B" ccw="B'" onMove={move} theme={theme} />
           </div>
         </main>
 
