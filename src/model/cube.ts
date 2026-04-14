@@ -1,16 +1,16 @@
-import type { Block, CubeModel, FaceColors, FaceKey } from '../types/cube';
+import type { Block, CubeModel, FaceColors, FaceKey, ColorCode } from '../types/cube';
 
 /**
  * Standard solved-state face colors (WCA orientation).
  * Exported so solver code can reference colors by face name.
  */
-export const SOLVED_COLORS: Record<string, string> = {
-  U: '#ffffff', // top   – white
-  D: '#ffd500', // bottom – yellow
-  F: '#009b48', // front  – green
-  B: '#0046ad', // back   – blue
-  R: '#b71234', // right  – red
-  L: '#ff5800', // left   – orange
+export const SOLVED_COLORS: Record<FaceKey, ColorCode> = {
+  U: 'WHITE',
+  D: 'YELLOW',
+  F: 'GREEN',
+  B: 'BLUE',
+  R: 'RED',
+  L: 'ORANGE',
 };
 
 // --------------------------------------------------------------------------
@@ -34,11 +34,7 @@ function dot(a: Vec3, b: Vec3): number {
 }
 
 function cross(a: Vec3, b: Vec3): Vec3 {
-  return [
-    a[1] * b[2] - a[2] * b[1],
-    a[2] * b[0] - a[0] * b[2],
-    a[0] * b[1] - a[1] * b[0],
-  ];
+  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 }
 
 /**
@@ -75,7 +71,7 @@ export function getFaceColors(cube: CubeModel, face: FaceKey, upFace: FaceKey): 
     const color = block.faceColors[face];
     if (color === undefined) continue;
     const p = block.position;
-    const row = 1 - dot(p, up);    // up-component: +1→row 0, -1→row 2
+    const row = 1 - dot(p, up); // up-component: +1→row 0, -1→row 2
     const col = 1 + dot(p, right); // right-component: -1→col 0, +1→col 2
     grid[row][col] = color;
   }
