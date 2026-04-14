@@ -408,7 +408,7 @@ const mainGridStyle: React.CSSProperties = {
   flex: 1,
   display: 'grid',
   gridTemplateColumns: '96px 1fr 96px',
-  gridTemplateRows: '80px 1fr 80px',
+  gridTemplateRows: '96px 1fr 96px',
   overflow: 'hidden',
 };
 
