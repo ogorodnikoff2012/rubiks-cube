@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import type { CubeModel, FaceKey } from '../types/cube';
+import type { CubeModel, FaceKey, ColorCode } from '../types/cube';
+import type { Theme } from '../themes/themes';
 import type { AnimState } from '../animation/MoveAnimation';
 import { FACE_NORMALS } from '../model/moves';
 
@@ -72,7 +73,7 @@ function getStickerGeom(face: FaceKey): THREE.BufferGeometry {
 // Build scene objects from the model
 // --------------------------------------------------------------------------
 
-function buildCubeGroup(model: CubeModel): THREE.Group {
+function buildCubeGroup(model: CubeModel, theme: Theme): THREE.Group {
   const group = new THREE.Group();
 
   for (const block of model.blocks) {
@@ -82,13 +83,8 @@ function buildCubeGroup(model: CubeModel): THREE.Group {
 
     cubieGroup.add(new THREE.Mesh(CUBIE_GEOM, BLACK_MAT));
 
-    for (const [faceKey, color] of Object.entries(block.faceColors) as [FaceKey, string][]) {
-      cubieGroup.add(
-        new THREE.Mesh(
-          getStickerGeom(faceKey),
-          getStickerMat(color),
-        ),
-      );
+    for (const [faceKey, colorCode] of Object.entries(block.faceColors) as [FaceKey, ColorCode][]) {
+      cubieGroup.add(new THREE.Mesh(getStickerGeom(faceKey), getStickerMat(theme[colorCode])));
     }
 
     group.add(cubieGroup);
@@ -115,9 +111,10 @@ interface Props {
   model: CubeModel;
   rotationRef: React.MutableRefObject<THREE.Quaternion>;
   animStateRef: React.MutableRefObject<AnimState>;
+  theme: Theme;
 }
 
-export default function CubeRenderer({ model, rotationRef, animStateRef }: Props) {
+export default function CubeRenderer({ model, rotationRef, animStateRef, theme }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -171,11 +168,11 @@ export default function CubeRenderer({ model, rotationRef, animStateRef }: Props
 
     if (cubeGroupRef.current) scene.remove(cubeGroupRef.current);
 
-    const group = buildCubeGroup(model);
+    const group = buildCubeGroup(model, theme);
     scene.add(group);
     cubeGroupRef.current = group;
     cubieGroupsRef.current = group.children as THREE.Group[];
-  }, [model, animStateRef]);
+  }, [model, animStateRef, theme]);
 
   // ── Render loop ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -259,7 +256,7 @@ export default function CubeRenderer({ model, rotationRef, animStateRef }: Props
 
       _dragQX.setFromAxisAngle(_axisX, angleX);
       _dragQY.setFromAxisAngle(_axisY, angleY).multiply(_dragQX); // delta = qY * qX
-      _dragResult.copy(rotationRef.current).premultiply(_dragQY);  // next = delta * current
+      _dragResult.copy(rotationRef.current).premultiply(_dragQY); // next = delta * current
       // Write to the shared ref — the RAF loop picks it up on the next frame.
       rotationRef.current = _dragResult;
     };
@@ -280,7 +277,10 @@ export default function CubeRenderer({ model, rotationRef, animStateRef }: Props
   }, [rotationRef]);
 
   return (
-    <div ref={containerRef} style={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
+    <div
+      ref={containerRef}
+      style={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }}
+    >
       <canvas ref={canvasRef} style={{ display: 'block', cursor: 'grab' }} />
     </div>
   );

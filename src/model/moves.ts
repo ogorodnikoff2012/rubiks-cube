@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { Block, CubeModel, FaceColors, FaceKey } from '../types/cube';
+import type { Block, CubeModel, FaceColors, FaceKey, ColorCode } from '../types/cube';
 
 // --------------------------------------------------------------------------
 // Move identifiers
@@ -175,7 +175,7 @@ function vectorToFaceKey(v: THREE.Vector3): FaceKey {
  */
 function remapFaceColors(faceColors: FaceColors, rotation: THREE.Quaternion): FaceColors {
   const result: FaceColors = {};
-  for (const [key, color] of Object.entries(faceColors) as [FaceKey, string][]) {
+  for (const [key, color] of Object.entries(faceColors) as [FaceKey, ColorCode][]) {
     const rotatedNormal = FACE_NORMALS[key].clone().applyQuaternion(rotation);
     result[vectorToFaceKey(rotatedNormal)] = color;
   }

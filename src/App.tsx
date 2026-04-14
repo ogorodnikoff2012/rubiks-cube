@@ -11,6 +11,8 @@ import { FACE_MOVES } from './model/moves';
 import type { MoveId } from './model/moves';
 import { useCubeQueue } from './hooks/useCubeQueue';
 import type { CubeAction } from './hooks/useCubeQueue';
+import { DEFAULT_THEME, NEON_THEME } from './themes/themes';
+import type { Theme } from './themes/themes';
 
 const SCRAMBLE_MOVES = 50;
 
@@ -119,6 +121,9 @@ export default function App() {
 
   const canUndo = queue.historyIndex > 0 && !isBusy;
   const canRedo = queue.historyIndex < queue.totalMoves && !isBusy;
+
+  // ── Theme ─────────────────────────────────────────────────────────────────
+  const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
 
   // ── Solver panel ─────────────────────────────────────────────────────────
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -263,6 +268,15 @@ export default function App() {
           </button>
         ))}
         <span style={dividerStyle} />
+        {([DEFAULT_THEME, NEON_THEME] as const).map((t, i) => (
+          <button
+            key={i}
+            onClick={() => setTheme(t)}
+            style={{ ...iconBtnStyle, fontWeight: t === theme ? 700 : 400 }}
+          >
+            {i === 0 ? 'WCA' : 'Neon'}
+          </button>
+        ))}
         <button onClick={() => setIsPanelOpen((v) => !v)} style={iconBtnStyle}>
           {isPanelOpen ? 'Solver ◀' : 'Solver ▶'}
         </button>
@@ -285,6 +299,7 @@ export default function App() {
             model={queue.cube}
             rotationRef={rotationRef}
             animStateRef={queue.animStateRef}
+            theme={theme}
           />
           <div style={centreSlot}>
             <MovePair cw="R" ccw="R'" onMove={move} />

@@ -7,7 +7,7 @@ export type FaceKey = 'F' | 'B' | 'U' | 'D' | 'L' | 'R';
 export type ColorCode = 'WHITE' | 'YELLOW' | 'GREEN' | 'BLUE' | 'RED' | 'ORANGE';
 
 /** Per-face color map for a single block. Only exposed faces need an entry. */
-export type FaceColors = Partial<Record<FaceKey, string>>;
+export type FaceColors = Partial<Record<FaceKey, ColorCode>>;
 
 /** A single cubie in the cube. Position is its grid coordinate [-1, 0, 1]^3. */
 export interface Block {
