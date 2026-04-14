@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Returns true when the viewport width is at or below the given breakpoint (default 640px).
+ * Returns true when the viewport width is at or below the given breakpoint (default 1280px).
  * Reacts to window resize and orientation change via matchMedia.
  */
-export function useIsMobile(breakpoint = 640): boolean {
+export function useIsMobile(breakpoint = 1280): boolean {
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth <= breakpoint : false,
   );
