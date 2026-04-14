@@ -287,7 +287,7 @@ export default function App() {
                     <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>{id}</button>
                   ))}
                 </div>
-                <div style={menuRowStyle}>
+                <div style={menuRowStyle} onClick={(e) => e.stopPropagation()}>
                   <select
                     value={THEMES.find((t) => t.theme === theme)?.name ?? THEMES[0].name}
                     onChange={(e) =>
