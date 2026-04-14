@@ -3,6 +3,9 @@ import type * as THREE from 'three';
 /** The six face directions in standard Rubik's cube notation. */
 export type FaceKey = 'F' | 'B' | 'U' | 'D' | 'L' | 'R';
 
+/** Semantic color identity for a sticker — resolved to a hex value by the active Theme. */
+export type ColorCode = 'WHITE' | 'YELLOW' | 'GREEN' | 'BLUE' | 'RED' | 'ORANGE';
+
 /** Per-face color map for a single block. Only exposed faces need an entry. */
 export type FaceColors = Partial<Record<FaceKey, string>>;
 
