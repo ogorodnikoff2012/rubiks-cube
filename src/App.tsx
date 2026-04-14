@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import CubeRenderer from './components/CubeRenderer';
 import SolverPanel from './components/SolverPanel';
@@ -11,7 +11,7 @@ import { FACE_MOVES } from './model/moves';
 import type { MoveId } from './model/moves';
 import { useCubeQueue } from './hooks/useCubeQueue';
 import type { CubeAction } from './hooks/useCubeQueue';
-import { DEFAULT_THEME, NEON_THEME } from './themes/themes';
+import { DEFAULT_THEME, THEMES } from './themes/themes';
 import type { Theme } from './themes/themes';
 import { SOLVED_COLORS } from './model/cube';
 import type { FaceKey } from './types/cube';
@@ -261,15 +261,17 @@ export default function App() {
           </button>
         ))}
         <span style={dividerStyle} />
-        {([DEFAULT_THEME, NEON_THEME] as const).map((t, i) => (
-          <button
-            key={i}
-            onClick={() => setTheme(t)}
-            style={{ ...iconBtnStyle, fontWeight: t === theme ? 700 : 400 }}
-          >
-            {i === 0 ? 'WCA' : 'Neon'}
-          </button>
-        ))}
+        <select
+          value={THEMES.find((t) => t.theme === theme)?.name ?? THEMES[0].name}
+          onChange={(e) => setTheme(THEMES.find((t) => t.name === e.target.value)?.theme || DEFAULT_THEME)}
+          style={themeSelectStyle}
+        >
+          {THEMES.map(({ name }) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
         <button onClick={() => setIsPanelOpen((v) => !v)} style={iconBtnStyle}>
           {isPanelOpen ? 'Solver ◀' : 'Solver ▶'}
         </button>
@@ -372,6 +374,19 @@ const iconBtnStyle: React.CSSProperties = {
   border: '1px solid #2a3a5a',
   borderRadius: 4,
   cursor: 'pointer',
+};
+
+const themeSelectStyle: React.CSSProperties = {
+  padding: '6px 28px 6px 12px',
+  fontSize: '0.85rem',
+  fontWeight: 500,
+  background: `#1a2a4a url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aac' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 8px center`,
+  color: '#aac',
+  border: '1px solid #2a3a5a',
+  borderRadius: 4,
+  cursor: 'pointer',
+  outline: 'none',
+  appearance: 'none',
 };
 
 const resetBtnStyle: React.CSSProperties = {
