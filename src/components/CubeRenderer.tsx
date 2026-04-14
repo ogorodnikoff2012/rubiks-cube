@@ -236,16 +236,17 @@ export default function CubeRenderer({ model, rotationRef, animStateRef, theme }
     return () => cancelAnimationFrame(animFrameRef.current);
   }, [animStateRef, rotationRef]);
 
-  // ── Mouse drag handling ───────────────────────────────────────────────────
+  // ── Pointer drag handling (mouse + touch) ────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const onMouseDown = (e: MouseEvent) => {
+    const onPointerDown = (e: PointerEvent) => {
       dragRef.current = { active: true, lastX: e.clientX, lastY: e.clientY };
+      canvas.setPointerCapture(e.pointerId);
     };
 
-    const onMouseMove = (e: MouseEvent) => {
+    const onPointerMove = (e: PointerEvent) => {
       const drag = dragRef.current;
       if (!drag.active) return;
 
@@ -259,24 +260,25 @@ export default function CubeRenderer({ model, rotationRef, animStateRef, theme }
       const angleY = dx * sensitivity;
 
       _dragQX.setFromAxisAngle(_axisX, angleX);
-      _dragQY.setFromAxisAngle(_axisY, angleY).multiply(_dragQX); // delta = qY * qX
-      _dragResult.copy(rotationRef.current).premultiply(_dragQY); // next = delta * current
-      // Write to the shared ref — the RAF loop picks it up on the next frame.
+      _dragQY.setFromAxisAngle(_axisY, angleY).multiply(_dragQX);
+      _dragResult.copy(rotationRef.current).premultiply(_dragQY);
       rotationRef.current = _dragResult;
     };
 
-    const onMouseUp = () => {
+    const onPointerUp = () => {
       dragRef.current.active = false;
     };
 
-    canvas.addEventListener('mousedown', onMouseDown);
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
+    canvas.addEventListener('pointerdown', onPointerDown);
+    canvas.addEventListener('pointermove', onPointerMove);
+    canvas.addEventListener('pointerup', onPointerUp);
+    canvas.addEventListener('pointercancel', onPointerUp);
 
     return () => {
-      canvas.removeEventListener('mousedown', onMouseDown);
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      canvas.removeEventListener('pointermove', onPointerMove);
+      canvas.removeEventListener('pointerup', onPointerUp);
+      canvas.removeEventListener('pointercancel', onPointerUp);
     };
   }, [rotationRef]);
 
@@ -285,7 +287,7 @@ export default function CubeRenderer({ model, rotationRef, animStateRef, theme }
       ref={containerRef}
       style={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, overflow: 'hidden' }}
     >
-      <canvas ref={canvasRef} style={{ display: 'block', cursor: 'grab' }} />
+      <canvas ref={canvasRef} style={{ display: 'block', cursor: 'grab', touchAction: 'none' }} />
     </div>
   );
 }
