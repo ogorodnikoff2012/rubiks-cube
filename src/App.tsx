@@ -102,6 +102,7 @@ export default function App() {
   const rotationRef = useRef(INITIAL_ROTATION.clone());
 
   const isMobile = useIsMobile();
+  const isPortrait = useIsMobile(0); // max-width:0 never matches → only aspect-ratio clause fires
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
@@ -392,7 +393,8 @@ export default function App() {
       </header>
 
       <div style={bodyStyle}>
-        {isMobile ? (
+        {isMobile && isPortrait ? (
+          /* ── Portrait mobile: cube on top, button bar at bottom ── */
           <main style={mobileMainStyle}>
             <div style={{ flex: 1, minHeight: 0 }}>
               <CubeRenderer
@@ -412,6 +414,28 @@ export default function App() {
                   theme={theme}
                 />
               ))}
+            </div>
+          </main>
+        ) : isMobile ? (
+          /* ── Landscape mobile: side columns flanking the cube ── */
+          <main style={mobileLandscapeStyle}>
+            <div style={mobileSideColumnStyle}>
+              <MovePair cw="U" ccw="U'" onMove={move} theme={theme} />
+              <MovePair cw="L" ccw="L'" onMove={move} theme={theme} />
+              <MovePair cw="F" ccw="F'" onMove={move} theme={theme} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <CubeRenderer
+                model={queue.cube}
+                rotationRef={rotationRef}
+                animStateRef={queue.animStateRef}
+                theme={theme}
+              />
+            </div>
+            <div style={mobileSideColumnStyle}>
+              <MovePair cw="D" ccw="D'" onMove={move} theme={theme} />
+              <MovePair cw="R" ccw="R'" onMove={move} theme={theme} />
+              <MovePair cw="B" ccw="B'" onMove={move} theme={theme} />
             </div>
           </main>
         ) : (
@@ -492,6 +516,23 @@ const mobileButtonBarStyle: React.CSSProperties = {
   paddingBottom: 'calc(8px + env(safe-area-inset-bottom))',
   gap: 8,
   flexShrink: 0,
+};
+
+const mobileLandscapeStyle: React.CSSProperties = {
+  flex: 1,
+  display: 'flex',
+  flexDirection: 'row',
+  overflow: 'hidden',
+};
+
+const mobileSideColumnStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'space-evenly',
+  alignItems: 'center',
+  width: 64,
+  flexShrink: 0,
+  padding: '8px 0',
 };
 
 const mainGridStyle: React.CSSProperties = {
