@@ -20,6 +20,7 @@ import { SOLVED_COLORS } from './model/cube';
 import type { FaceKey } from './types/cube';
 
 const SCRAMBLE_MOVES = 50;
+const SETTINGS_KEY = 'rubiks-cube-settings';
 
 const INITIAL_ROTATION = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.35, -0.52, 0));
 const RESET_ROTATION_MS = 700;
@@ -128,15 +129,13 @@ export default function App() {
   // ── Settings (persisted to localStorage) ─────────────────────────────────
   const [settings, setSettings] = useState<Settings>(() => {
     try {
-      const raw = localStorage.getItem('rubiks-cube-settings');
-      if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } as Settings;
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
     } catch {
       // ignore
     }
     return DEFAULT_SETTINGS;
   });
-  const theme = resolveTheme(settings.themeName);
-
   // ── Solver panel ─────────────────────────────────────────────────────────
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [solverLog, setSolverLog] = useState<string[]>([]);
@@ -335,7 +334,7 @@ export default function App() {
                       onChange={(e) => {
                         const newSettings: Settings = { ...settings, themeName: e.target.value };
                         setSettings(newSettings);
-                        localStorage.setItem('rubiks-cube-settings', JSON.stringify(newSettings));
+                        localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
                       }}
                       style={{ ...themeSelectStyle, flex: 1 }}
                     >
@@ -390,7 +389,7 @@ export default function App() {
                 onChange={(e) => {
                   const newSettings: Settings = { ...settings, themeName: e.target.value };
                   setSettings(newSettings);
-                  localStorage.setItem('rubiks-cube-settings', JSON.stringify(newSettings));
+                  localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
                 }}
                 style={themeSelectStyle}
               >
@@ -416,7 +415,6 @@ export default function App() {
                   model={queue.cube}
                   rotationRef={rotationRef}
                   animStateRef={queue.animStateRef}
-                  theme={theme}
                 />
               </div>
               <div style={mobileButtonBarStyle}>
@@ -438,7 +436,6 @@ export default function App() {
                   model={queue.cube}
                   rotationRef={rotationRef}
                   animStateRef={queue.animStateRef}
-                  theme={theme}
                 />
               </div>
               <div style={mobileSideColumnStyle}>
@@ -464,7 +461,6 @@ export default function App() {
                 model={queue.cube}
                 rotationRef={rotationRef}
                 animStateRef={queue.animStateRef}
-                theme={theme}
               />
               <div style={centreSlot}>
                 <MovePair cw="R" ccw="R'" onMove={move} />

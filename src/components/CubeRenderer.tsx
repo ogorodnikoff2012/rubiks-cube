@@ -4,6 +4,8 @@ import type { CubeModel, FaceKey, ColorCode } from '../types/cube';
 import type { Theme } from '../themes/themes';
 import type { AnimState } from '../animation/MoveAnimation';
 import { FACE_NORMALS } from '../model/moves';
+import { useSettings } from '../settings/SettingsContext';
+import { resolveTheme } from '../settings/settings';
 
 // --------------------------------------------------------------------------
 // Face geometry helpers
@@ -111,10 +113,11 @@ interface Props {
   model: CubeModel;
   rotationRef: React.MutableRefObject<THREE.Quaternion>;
   animStateRef: React.MutableRefObject<AnimState>;
-  theme: Theme;
 }
 
-export default function CubeRenderer({ model, rotationRef, animStateRef, theme }: Props) {
+export default function CubeRenderer({ model, rotationRef, animStateRef }: Props) {
+  const { themeName } = useSettings();
+  const theme = resolveTheme(themeName);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
