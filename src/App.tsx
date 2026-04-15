@@ -102,6 +102,7 @@ export default function App() {
   const rotationRef = useRef(INITIAL_ROTATION.clone());
 
   const isMobile = useIsMobile();
+  const isPortrait = useIsMobile(0); // max-width:0 never matches → only aspect-ratio clause fires
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
@@ -392,39 +393,86 @@ export default function App() {
       </header>
 
       <div style={bodyStyle}>
-        <main style={mainGridStyle}>
-          {/* Row 1 */}
-          <div />
-          <div style={centreSlot}>
-            <MovePair cw="U" ccw="U'" onMove={move} theme={theme} />
-          </div>
-          <div />
+        {isMobile && isPortrait ? (
+          /* ── Portrait mobile: cube on top, button bar at bottom ── */
+          <main style={mobileMainStyle}>
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <CubeRenderer
+                model={queue.cube}
+                rotationRef={rotationRef}
+                animStateRef={queue.animStateRef}
+                theme={theme}
+              />
+            </div>
+            <div style={mobileButtonBarStyle}>
+              {(['L', 'R', 'U', 'D', 'F', 'B'] as const).map((face) => (
+                <MovePair
+                  key={face}
+                  cw={face}
+                  ccw={`${face}'` as MoveId}
+                  onMove={move}
+                  theme={theme}
+                />
+              ))}
+            </div>
+          </main>
+        ) : isMobile ? (
+          /* ── Landscape mobile: side columns flanking the cube ── */
+          <main style={mobileLandscapeStyle}>
+            <div style={mobileSideColumnStyle}>
+              <MovePair cw="U" ccw="U'" onMove={move} theme={theme} />
+              <MovePair cw="L" ccw="L'" onMove={move} theme={theme} />
+              <MovePair cw="F" ccw="F'" onMove={move} theme={theme} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <CubeRenderer
+                model={queue.cube}
+                rotationRef={rotationRef}
+                animStateRef={queue.animStateRef}
+                theme={theme}
+              />
+            </div>
+            <div style={mobileSideColumnStyle}>
+              <MovePair cw="D" ccw="D'" onMove={move} theme={theme} />
+              <MovePair cw="R" ccw="R'" onMove={move} theme={theme} />
+              <MovePair cw="B" ccw="B'" onMove={move} theme={theme} />
+            </div>
+          </main>
+        ) : (
+          <main style={mainGridStyle}>
+            {/* Row 1 */}
+            <div />
+            <div style={centreSlot}>
+              <MovePair cw="U" ccw="U'" onMove={move} theme={theme} />
+            </div>
+            <div />
 
-          {/* Row 2 */}
-          <div style={centreSlot}>
-            <MovePair cw="L" ccw="L'" onMove={move} theme={theme} />
-          </div>
-          <CubeRenderer
-            model={queue.cube}
-            rotationRef={rotationRef}
-            animStateRef={queue.animStateRef}
-            theme={theme}
-          />
-          <div style={centreSlot}>
-            <MovePair cw="R" ccw="R'" onMove={move} theme={theme} />
-          </div>
+            {/* Row 2 */}
+            <div style={centreSlot}>
+              <MovePair cw="L" ccw="L'" onMove={move} theme={theme} />
+            </div>
+            <CubeRenderer
+              model={queue.cube}
+              rotationRef={rotationRef}
+              animStateRef={queue.animStateRef}
+              theme={theme}
+            />
+            <div style={centreSlot}>
+              <MovePair cw="R" ccw="R'" onMove={move} theme={theme} />
+            </div>
 
-          {/* Row 3 – F bottom-left, D centre, B bottom-right */}
-          <div style={centreSlot}>
-            <MovePair cw="F" ccw="F'" onMove={move} theme={theme} />
-          </div>
-          <div style={centreSlot}>
-            <MovePair cw="D" ccw="D'" onMove={move} theme={theme} />
-          </div>
-          <div style={centreSlot}>
-            <MovePair cw="B" ccw="B'" onMove={move} theme={theme} />
-          </div>
-        </main>
+            {/* Row 3 – F bottom-left, D centre, B bottom-right */}
+            <div style={centreSlot}>
+              <MovePair cw="F" ccw="F'" onMove={move} theme={theme} />
+            </div>
+            <div style={centreSlot}>
+              <MovePair cw="D" ccw="D'" onMove={move} theme={theme} />
+            </div>
+            <div style={centreSlot}>
+              <MovePair cw="B" ccw="B'" onMove={move} theme={theme} />
+            </div>
+          </main>
+        )}
 
         {isPanelOpen && <SolverPanel lines={solverLog} />}
       </div>
@@ -450,6 +498,43 @@ const bodyStyle: React.CSSProperties = {
   flex: 1,
   display: 'flex',
   overflow: 'hidden',
+};
+
+const mobileMainStyle: React.CSSProperties = {
+  flex: 1,
+  display: 'flex',
+  flexDirection: 'column',
+  overflow: 'hidden',
+};
+
+const mobileButtonBarStyle: React.CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  justifyContent: 'space-around',
+  alignItems: 'center',
+  padding: '8px',
+  paddingBottom: 'calc(8px + env(safe-area-inset-bottom))',
+  gap: 8,
+  flexShrink: 0,
+};
+
+const mobileLandscapeStyle: React.CSSProperties = {
+  flex: 1,
+  display: 'flex',
+  flexDirection: 'row',
+  overflow: 'hidden',
+  paddingLeft: 'env(safe-area-inset-left)',
+  paddingRight: 'env(safe-area-inset-right)',
+};
+
+const mobileSideColumnStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'space-evenly',
+  alignItems: 'center',
+  width: 64,
+  flexShrink: 0,
+  padding: '8px 0',
 };
 
 const mainGridStyle: React.CSSProperties = {
