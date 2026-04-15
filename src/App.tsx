@@ -252,13 +252,27 @@ export default function App() {
       }}
     >
       <header style={{ ...headerStyle, position: 'relative' }}>
-        <h1 style={{ fontSize: '1.1rem', fontWeight: 600, letterSpacing: '0.05em', flex: isMobile ? 0 : 1 }}>
+        <h1
+          style={{
+            fontSize: '1.1rem',
+            fontWeight: 600,
+            letterSpacing: '0.05em',
+            flex: isMobile ? 0 : 1,
+          }}
+        >
           Rubik&rsquo;s Cube
         </h1>
 
         {isMobile ? (
           <>
-            <span style={{ fontSize: '0.8rem', color: '#8899aa', fontFamily: 'monospace', marginLeft: 'auto' }}>
+            <span
+              style={{
+                fontSize: '0.8rem',
+                color: '#8899aa',
+                fontFamily: 'monospace',
+                marginLeft: 'auto',
+              }}
+            >
               {queue.historyIndex}/{queue.totalMoves}
               {queue.pendingCount > 0 && ` +${queue.pendingCount}`}
             </span>
@@ -273,30 +287,48 @@ export default function App() {
             {isMenuOpen && (
               <div ref={menuRef} style={menuPanelStyle} onClick={() => setIsMenuOpen(false)}>
                 <div style={menuRowStyle}>
-                  <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>↩ Undo</button>
-                  <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>Redo ↪</button>
+                  <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>
+                    ↩ Undo
+                  </button>
+                  <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>
+                    Redo ↪
+                  </button>
                 </div>
                 <div style={menuRowStyle}>
-                  <button onClick={handleScramble} style={resetBtnStyle}>Scramble</button>
-                  <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>Solve</button>
-                  <button onClick={queue.resetCube} style={resetBtnStyle}>Reset</button>
-                  <button onClick={handleResetRotation} style={resetBtnStyle}>Reset rotation</button>
+                  <button onClick={handleScramble} style={resetBtnStyle}>
+                    Scramble
+                  </button>
+                  <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>
+                    Solve
+                  </button>
+                  <button onClick={queue.resetCube} style={resetBtnStyle}>
+                    Reset
+                  </button>
+                  <button onClick={handleResetRotation} style={resetBtnStyle}>
+                    Reset rotation
+                  </button>
                 </div>
                 <div style={menuRowStyle}>
                   {(['x', "x'", 'y', "y'", 'z', "z'"] as const).map((id) => (
-                    <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>{id}</button>
+                    <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>
+                      {id}
+                    </button>
                   ))}
                 </div>
                 <div style={menuRowStyle} onClick={(e) => e.stopPropagation()}>
                   <select
                     value={THEMES.find((t) => t.theme === theme)?.name ?? THEMES[0].name}
                     onChange={(e) =>
-                      setTheme(THEMES.find((t) => t.name === e.target.value)?.theme || DEFAULT_THEME)
+                      setTheme(
+                        THEMES.find((t) => t.name === e.target.value)?.theme || DEFAULT_THEME,
+                      )
                     }
                     style={{ ...themeSelectStyle, flex: 1 }}
                   >
                     {THEMES.map(({ name }) => (
-                      <option key={name} value={name}>{name}</option>
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -314,15 +346,29 @@ export default function App() {
               {queue.historyIndex}/{queue.totalMoves}
               {queue.pendingCount > 0 && ` +${queue.pendingCount}`}
             </span>
-            <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>↩ Undo</button>
-            <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>Redo ↪</button>
-            <button onClick={handleScramble} style={resetBtnStyle}>Scramble</button>
-            <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>Solve</button>
-            <button onClick={queue.resetCube} style={resetBtnStyle}>Reset</button>
-            <button onClick={handleResetRotation} style={resetBtnStyle}>Reset rotation</button>
+            <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>
+              ↩ Undo
+            </button>
+            <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>
+              Redo ↪
+            </button>
+            <button onClick={handleScramble} style={resetBtnStyle}>
+              Scramble
+            </button>
+            <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>
+              Solve
+            </button>
+            <button onClick={queue.resetCube} style={resetBtnStyle}>
+              Reset
+            </button>
+            <button onClick={handleResetRotation} style={resetBtnStyle}>
+              Reset rotation
+            </button>
             <span style={dividerStyle} />
             {(['x', "x'", 'y', "y'", 'z', "z'"] as const).map((id) => (
-              <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>{id}</button>
+              <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>
+                {id}
+              </button>
             ))}
             <span style={dividerStyle} />
             <select
@@ -333,7 +379,9 @@ export default function App() {
               style={themeSelectStyle}
             >
               {THEMES.map(({ name }) => (
-                <option key={name} value={name}>{name}</option>
+                <option key={name} value={name}>
+                  {name}
+                </option>
               ))}
             </select>
             <button onClick={() => setIsPanelOpen((v) => !v)} style={iconBtnStyle}>

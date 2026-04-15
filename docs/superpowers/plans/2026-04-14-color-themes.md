@@ -13,6 +13,7 @@
 ### Task 1: Add `ColorCode` type and `themes.ts`
 
 **Files:**
+
 - Modify: `src/types/cube.ts`
 - Create: `src/themes/themes.ts`
 
@@ -68,21 +69,21 @@ export type Theme = Record<ColorCode, string>;
 
 /** Standard WCA competition colors. */
 export const DEFAULT_THEME: Theme = {
-  WHITE:  '#ffffff',
+  WHITE: '#ffffff',
   YELLOW: '#ffd500',
-  GREEN:  '#009b48',
-  BLUE:   '#0046ad',
-  RED:    '#b71234',
+  GREEN: '#009b48',
+  BLUE: '#0046ad',
+  RED: '#b71234',
   ORANGE: '#ff5800',
 };
 
 /** High-contrast neon theme. */
 export const NEON_THEME: Theme = {
-  WHITE:  '#f0f0f0',
+  WHITE: '#f0f0f0',
   YELLOW: '#ffe600',
-  GREEN:  '#00ff88',
-  BLUE:   '#00aaff',
-  RED:    '#ff2244',
+  GREEN: '#00ff88',
+  BLUE: '#00aaff',
+  RED: '#ff2244',
   ORANGE: '#ff8800',
 };
 ```
@@ -107,6 +108,7 @@ git commit -m "feat: add ColorCode type and themes module"
 ### Task 2: Update `SOLVED_COLORS` to use color codes
 
 **Files:**
+
 - Modify: `src/model/cube.ts`
 
 `ColorCode` is a subtype of `string`, so changing `SOLVED_COLORS` values to color codes is backward-compatible with the still-`string`-typed `FaceColors`. The build stays green.
@@ -174,6 +176,7 @@ git commit -m "feat: SOLVED_COLORS now uses ColorCode values"
 ### Task 3: Narrow `FaceColors`, update renderer, update App
 
 **Files:**
+
 - Modify: `src/types/cube.ts`
 - Modify: `src/model/moves.ts`
 - Modify: `src/components/CubeRenderer.tsx`
@@ -259,12 +262,7 @@ function buildCubeGroup(model: CubeModel): THREE.Group {
     cubieGroup.add(new THREE.Mesh(CUBIE_GEOM, BLACK_MAT));
 
     for (const [faceKey, color] of Object.entries(block.faceColors) as [FaceKey, string][]) {
-      cubieGroup.add(
-        new THREE.Mesh(
-          getStickerGeom(faceKey),
-          getStickerMat(color),
-        ),
-      );
+      cubieGroup.add(new THREE.Mesh(getStickerGeom(faceKey), getStickerMat(color)));
     }
 
     group.add(cubieGroup);
@@ -288,12 +286,7 @@ function buildCubeGroup(model: CubeModel, theme: Theme): THREE.Group {
     cubieGroup.add(new THREE.Mesh(CUBIE_GEOM, BLACK_MAT));
 
     for (const [faceKey, colorCode] of Object.entries(block.faceColors) as [FaceKey, ColorCode][]) {
-      cubieGroup.add(
-        new THREE.Mesh(
-          getStickerGeom(faceKey),
-          getStickerMat(theme[colorCode]),
-        ),
-      );
+      cubieGroup.add(new THREE.Mesh(getStickerGeom(faceKey), getStickerMat(theme[colorCode])));
     }
 
     group.add(cubieGroup);
@@ -325,13 +318,13 @@ export default function CubeRenderer({ model, rotationRef, animStateRef, theme }
 Replace:
 
 ```ts
-    const group = buildCubeGroup(model);
+const group = buildCubeGroup(model);
 ```
 
 With:
 
 ```ts
-    const group = buildCubeGroup(model, theme);
+const group = buildCubeGroup(model, theme);
 ```
 
 Replace the effect's dependency array:
@@ -370,27 +363,29 @@ const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
 **c) Pass `theme` to `CubeRenderer` in the JSX:**
 
 ```tsx
-          <CubeRenderer
-            model={queue.cube}
-            rotationRef={rotationRef}
-            animStateRef={queue.animStateRef}
-            theme={theme}
-          />
+<CubeRenderer
+  model={queue.cube}
+  rotationRef={rotationRef}
+  animStateRef={queue.animStateRef}
+  theme={theme}
+/>
 ```
 
 **d) Add a theme-switcher button group to the header, just before the solver toggle button. Place it after the `<span style={dividerStyle} />` that precedes `setIsPanelOpen`:**
 
 ```tsx
-        <span style={dividerStyle} />
-        {([DEFAULT_THEME, NEON_THEME] as const).map((t, i) => (
-          <button
-            key={i}
-            onClick={() => setTheme(t)}
-            style={{ ...iconBtnStyle, fontWeight: t === theme ? 700 : 400 }}
-          >
-            {i === 0 ? 'WCA' : 'Neon'}
-          </button>
-        ))}
+<span style={dividerStyle} />;
+{
+  ([DEFAULT_THEME, NEON_THEME] as const).map((t, i) => (
+    <button
+      key={i}
+      onClick={() => setTheme(t)}
+      style={{ ...iconBtnStyle, fontWeight: t === theme ? 700 : 400 }}
+    >
+      {i === 0 ? 'WCA' : 'Neon'}
+    </button>
+  ));
+}
 ```
 
 - [ ] **Step 5: Verify the build passes**
@@ -408,6 +403,7 @@ yarn dev
 ```
 
 Open `http://localhost:5173`. Check:
+
 - Cube renders with correct WCA colors (white top, yellow bottom, green front, blue back, red right, orange left)
 - Click "Neon" in the header — cube immediately re-renders with neon colors
 - Click "WCA" — cube returns to standard colors

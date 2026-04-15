@@ -13,6 +13,7 @@
 ### Task 1: Add Vite base path
 
 **Files:**
+
 - Modify: `vite.config.ts`
 
 GitHub Pages serves the app at `/rubiks-cube/` (subdirectory), not `/`. Without `base`, Vite emits asset paths like `/assets/index-abc.js` which 404 on Pages.
@@ -52,6 +53,7 @@ git commit -m "feat: set vite base path for github pages"
 ### Task 2: Create GitHub Actions workflow
 
 **Files:**
+
 - Create: `.github/workflows/ci.yml`
 
 The `ci` job name (matching the YAML job key) becomes the status check context `"CI / ci"` in GitHub (workflow name + job id). Branch protection in Task 4 will reference this exact string.
@@ -138,6 +140,7 @@ git commit -m "ci: add github actions workflow for ci and pages deploy"
 ### Task 3: Push to GitHub and enable Pages
 
 **Files:**
+
 - GitHub repo settings (via `gh` CLI)
 
 Pages source must be set to "GitHub Actions" before the deploy job can publish. Without this, `actions/deploy-pages` will fail with a 404 or permissions error.
@@ -201,9 +204,10 @@ Expected: `HTTP/2 200` (or `301`/`302` redirect to the same URL).
 ### Task 4: Configure branch protection
 
 **Files:**
+
 - GitHub repo settings (via `gh` CLI)
 
-The status check context name is `"CI / ci"` — the GitHub Actions workflow name (`CI`) concatenated with the job id (`ci`) via ` / `. This must match exactly or the required check won't be recognized.
+The status check context name is `"CI / ci"` — the GitHub Actions workflow name (`CI`) concatenated with the job id (`ci`) via `/`. This must match exactly or the required check won't be recognized.
 
 `required_pull_request_reviews` with `required_approving_review_count: 0` enables the "require a pull request before merging" rule without demanding reviews from other users — appropriate for a solo repo.
 
@@ -241,6 +245,7 @@ gh api repos/ogorodnikoff2012/rubiks-cube/branches/master/protection \
 ```
 
 Expected:
+
 ```json
 {
   "status_checks": ["CI / ci"],

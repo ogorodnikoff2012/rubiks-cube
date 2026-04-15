@@ -12,8 +12,8 @@
 
 ## File Structure
 
-| File | Change |
-|------|--------|
+| File                         | Change                                                               |
+| ---------------------------- | -------------------------------------------------------------------- |
 | `src/solver/layerByLayer.ts` | Add `step6YellowCornersPositioning`; register in `solveLayerByLayer` |
 
 No other files change.
@@ -23,6 +23,7 @@ No other files change.
 ### Task 1: Implement `step6YellowCornersPositioning`
 
 **Files:**
+
 - Modify: `src/solver/layerByLayer.ts` — insert new function before the `// Public API` comment block (line 411)
 
 - [ ] **Step 1: Insert the function**
@@ -60,9 +61,9 @@ function step6YellowCornersPositioning(cube: CubeModel): MoveId[] {
   const yellow = SOLVED_COLORS.D;
 
   // algoA: fixes UBL, cycles UFL/UFR/UBR
-  const algoA: MoveId[] = ["U", "R", "U'", "L'", "U", "R'", "U'", "L"];
+  const algoA: MoveId[] = ['U', 'R', "U'", "L'", 'U', "R'", "U'", 'L'];
   // algoB: fixes UFR, cycles UFL/UBL/UBR  (y2-conjugate: R↔L throughout)
-  const algoB: MoveId[] = ["U", "L", "U'", "R'", "U", "L'", "U'", "R"];
+  const algoB: MoveId[] = ['U', 'L', "U'", "R'", 'U', "L'", "U'", 'R'];
 
   /** Color on the centre of `face` (read dynamically — y-rotations may have shifted centres). */
   function getCenterColor(face: FaceKey): string {
@@ -126,15 +127,15 @@ function step6YellowCornersPositioning(cube: CubeModel): MoveId[] {
 In `src/solver/layerByLayer.ts`, find the `steps` array inside `solveLayerByLayer` (around line 416) and add the new entry after step 5:
 
 ```ts
-  const steps: [string, (cube: CubeModel) => MoveId[]][] = [
-    ['Step 0: Cube Orientation', step0Orientation],
-    ['Step 1: White Cross', step1WhiteCross],
-    ['Step 2: White Corners', step2WhiteCorners],
-    ['Step 3: Middle Layer', step3MiddleLayer],
-    ['Step 4: Yellow Cross', step4YellowCross],
-    ['Step 5: Ordered Yellow Cross', step5OrderedYellowCross],
-    ['Step 6: Yellow Corners Position', step6YellowCornersPositioning],
-  ];
+const steps: [string, (cube: CubeModel) => MoveId[]][] = [
+  ['Step 0: Cube Orientation', step0Orientation],
+  ['Step 1: White Cross', step1WhiteCross],
+  ['Step 2: White Corners', step2WhiteCorners],
+  ['Step 3: Middle Layer', step3MiddleLayer],
+  ['Step 4: Yellow Cross', step4YellowCross],
+  ['Step 5: Ordered Yellow Cross', step5OrderedYellowCross],
+  ['Step 6: Yellow Corners Position', step6YellowCornersPositioning],
+];
 ```
 
 - [ ] **Step 3: Build to verify types**

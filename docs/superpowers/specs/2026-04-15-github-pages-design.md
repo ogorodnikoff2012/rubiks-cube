@@ -71,8 +71,8 @@ In the repository settings, Pages source must be set to **"GitHub Actions"** (no
 
 ## Files Changed
 
-| File | Change |
-|---|---|
-| `vite.config.ts` | Add `base: '/rubiks-cube/'` |
-| `.github/workflows/ci.yml` | Create — CI + deploy workflow |
-| GitHub repo settings | Enable Pages (source: GitHub Actions), configure branch protection |
+| File                       | Change                                                             |
+| -------------------------- | ------------------------------------------------------------------ |
+| `vite.config.ts`           | Add `base: '/rubiks-cube/'`                                        |
+| `.github/workflows/ci.yml` | Create — CI + deploy workflow                                      |
+| GitHub repo settings       | Enable Pages (source: GitHub Actions), configure branch protection |

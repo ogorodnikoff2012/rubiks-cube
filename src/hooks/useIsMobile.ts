@@ -9,9 +9,8 @@ import { useEffect, useState } from 'react';
 export function useIsMobile(breakpoint = 1280, aspectRatio = '1/1'): boolean {
   const [isMobile, setIsMobile] = useState(() => {
     if (typeof window === 'undefined') return false;
-    return window.matchMedia(
-      `(max-width: ${breakpoint}px), (max-aspect-ratio: ${aspectRatio})`,
-    ).matches;
+    return window.matchMedia(`(max-width: ${breakpoint}px), (max-aspect-ratio: ${aspectRatio})`)
+      .matches;
   });
 
   useEffect(() => {

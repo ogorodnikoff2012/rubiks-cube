@@ -157,9 +157,16 @@ export function useCubeQueue(animService: AnimationService): CubeQueue {
 
       animService.submit(
         new EasedAnimation(
-          new MoveAnimation(affectedIndices, targetRotation, guardedOnFrame, guardedSetCube, committedModel, (c) => {
-            if (generationRef.current === gen) onDone(c);
-          }),
+          new MoveAnimation(
+            affectedIndices,
+            targetRotation,
+            guardedOnFrame,
+            guardedSetCube,
+            committedModel,
+            (c) => {
+              if (generationRef.current === gen) onDone(c);
+            },
+          ),
           easeInOutCubic,
         ),
         MOVE_DURATION_MS,

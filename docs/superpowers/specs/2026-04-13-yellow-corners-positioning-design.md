@@ -9,14 +9,14 @@
 
 The layer-by-layer solver in `src/solver/layerByLayer.ts` currently implements steps 0–5:
 
-| Step | Name |
-|------|------|
-| 0 | Cube orientation (white U, green F) |
-| 1 | White cross |
-| 2 | White corners |
-| 3 | Middle layer edges |
-| 4 | Yellow cross (shape) |
-| 5 | Ordered yellow cross (edge permutation) |
+| Step | Name                                    |
+| ---- | --------------------------------------- |
+| 0    | Cube orientation (white U, green F)     |
+| 1    | White cross                             |
+| 2    | White corners                           |
+| 3    | Middle layer edges                      |
+| 4    | Yellow cross (shape)                    |
+| 5    | Ordered yellow cross (edge permutation) |
 
 Step 4 flips the cube with `x x` so **yellow is on U** for steps 4–7. After step 5, the yellow cross edges are in their correct slots and the four yellow corners are in some even permutation of their correct slots.
 
@@ -28,10 +28,10 @@ Step 6 permutes the corners into the correct slots. Orientation (twist) is left 
 
 Two symmetric algorithms are used to keep y' rotations to at most 1 in all cases.
 
-| Name | Sequence | Anchor slot |
-|------|----------|-------------|
-| `algoA` | `U R U' L' U R' U' L` | UBL |
-| `algoB` | `U L U' R' U L' U' R` | UFR |
+| Name    | Sequence              | Anchor slot |
+| ------- | --------------------- | ----------- |
+| `algoA` | `U R U' L' U R' U' L` | UBL         |
+| `algoB` | `U L U' R' U L' U' R` | UFR         |
 
 `algoB` is the **y2-conjugate** of `algoA` (R↔L swapped throughout). It fixes UFR — the slot diagonally opposite UBL — and cycles the remaining three corners in the symmetric direction.
 
@@ -59,11 +59,11 @@ A corner is **correctly slotted** when `findCorner(cube, yellow, centerA, center
 The y' cycle for U-corner slots is `UFR→UFL→UBL→UBR→UFR`. With two anchors at UBL and UFR (diagonally opposite), each slot is at most 1 y' hop from one of the anchors:
 
 | Correct corner at | y' rotations | Algorithm |
-|---|---|---|
-| UBL | 0 | algoA |
-| UFL | 1 (UFL→UBL) | algoA |
-| UFR | 0 | algoB |
-| UBR | 1 (UBR→UFR) | algoB |
+| ----------------- | ------------ | --------- |
+| UBL               | 0            | algoA     |
+| UFL               | 1 (UFL→UBL)  | algoA     |
+| UFR               | 0            | algoB     |
+| UBR               | 1 (UBR→UFR)  | algoB     |
 
 ```
 while not all 4 corners correctly slotted (guard: 1000 moves):
@@ -80,11 +80,11 @@ while not all 4 corners correctly slotted (guard: 1000 moves):
 
 ### Case analysis
 
-| Permutation type | Correct slots before | Algorithm applications |
-|-----------------|---------------------|----------------------|
-| Identity | 4 | 0 |
-| 3-cycle | 1 | 1 (at most 1 y' rotation) |
-| Double-swap | 0 | ≤ 2 |
+| Permutation type | Correct slots before | Algorithm applications    |
+| ---------------- | -------------------- | ------------------------- |
+| Identity         | 4                    | 0                         |
+| 3-cycle          | 1                    | 1 (at most 1 y' rotation) |
+| Double-swap      | 0                    | ≤ 2                       |
 
 All three are even permutations of A₄, covering every reachable state after steps 1–5.
 

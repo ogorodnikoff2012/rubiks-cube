@@ -61,7 +61,7 @@ One new boolean state: `isMenuOpen` (default `false`).
   | 4 | Theme select (full width) |
   | 5 | Solver toggle |
 - Tapping any button in the menu closes the menu automatically (via a wrapper that calls `setIsMenuOpen(false)` after the action).
-- Tapping outside the panel (on the canvas / body) closes the menu via a `pointerdown` listener on `window` that checks whether the event target is outside the panel.
+- Tapping outside the panel (on the canvas / body) closes the menu via a `pointerdown` listener on `window` that fires only when `isMenuOpen` is true and the event target is outside the panel element.
 
 ### Desktop header layout (>640px)
 
@@ -75,10 +75,10 @@ These live in the 3×3 grid around the cube, not in the header. They remain visi
 
 ## Files changed
 
-| File | Change |
-|------|--------|
-| `src/components/CubeRenderer.tsx` | Replace mouse events with pointer events |
-| `src/App.tsx` | Add `isMenuOpen` state + hamburger button + responsive dropdown panel |
+| File                              | Change                                                                |
+| --------------------------------- | --------------------------------------------------------------------- |
+| `src/components/CubeRenderer.tsx` | Replace mouse events with pointer events                              |
+| `src/App.tsx`                     | Add `isMenuOpen` state + hamburger button + responsive dropdown panel |
 
 ---
 

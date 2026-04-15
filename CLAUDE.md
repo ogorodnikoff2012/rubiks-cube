@@ -239,31 +239,31 @@ The root component. Holds all mutable state and orchestrates animations.
 
 Visible React state is encapsulated in the `useCubeQueue` hook and exposed via the `queue` object:
 
-| Field           | Type        | Purpose                                                                         |
-| --------------- | ----------- | ------------------------------------------------------------------------------- |
-| `cube`          | `CubeModel` | Current rendered cube (React-managed, updated at end of each animation)         |
-| `historyIndex`  | `number`    | How many history entries are applied; `moves[historyIndex..]` is the redo stack |
-| `totalMoves`    | `number`    | Total moves in the history array                                                |
-| `pendingCount`  | `number`    | Items in the queue that haven't started animating yet                           |
-| `isAnimating`   | `boolean`   | A move animation is currently in flight                                         |
-| `isBusy`        | `boolean`   | `isAnimating \|\| pendingCount > 0`; used to gate undo/redo in the UI           |
+| Field          | Type        | Purpose                                                                         |
+| -------------- | ----------- | ------------------------------------------------------------------------------- |
+| `cube`         | `CubeModel` | Current rendered cube (React-managed, updated at end of each animation)         |
+| `historyIndex` | `number`    | How many history entries are applied; `moves[historyIndex..]` is the redo stack |
+| `totalMoves`   | `number`    | Total moves in the history array                                                |
+| `pendingCount` | `number`    | Items in the queue that haven't started animating yet                           |
+| `isAnimating`  | `boolean`   | A move animation is currently in flight                                         |
+| `isBusy`       | `boolean`   | `isAnimating \|\| pendingCount > 0`; used to gate undo/redo in the UI           |
 
 App also owns:
 
-| Ref             | Purpose                                                                                              |
-| --------------- | ---------------------------------------------------------------------------------------------------- |
-| `rotationRef`   | Whole-cube visual quaternion — read by RAF loop every frame, written by drag and RotationAnimation   |
+| Ref           | Purpose                                                                                            |
+| ------------- | -------------------------------------------------------------------------------------------------- |
+| `rotationRef` | Whole-cube visual quaternion — read by RAF loop every frame, written by drag and RotationAnimation |
 
 ### Refs inside `useCubeQueue` (synchronous state, bypass React batching)
 
-| Ref                 | Purpose                                                                                           |
-| ------------------- | ------------------------------------------------------------------------------------------------- |
-| `committedCubeRef`  | Fully-resolved cube model; updated synchronously in `onDone` — one render ahead of `setCube`     |
-| `histRef`           | Mirrors `historyIndex` / move list for use in animation callbacks without waiting for re-renders  |
-| `queueRef`          | Mutable action queue; plain array mutation avoids stale-closure issues with `useState`            |
-| `isProcessingRef`   | Guards against starting a second concurrent drain loop                                            |
-| `generationRef`     | Bumped by `resetCube()` so in-flight animation callbacks can detect a reset and become no-ops     |
-| `animStateRef`      | Current move animation state (indices + quaternion) read each frame by CubeRenderer's RAF loop   |
+| Ref                | Purpose                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| `committedCubeRef` | Fully-resolved cube model; updated synchronously in `onDone` — one render ahead of `setCube`     |
+| `histRef`          | Mirrors `historyIndex` / move list for use in animation callbacks without waiting for re-renders |
+| `queueRef`         | Mutable action queue; plain array mutation avoids stale-closure issues with `useState`           |
+| `isProcessingRef`  | Guards against starting a second concurrent drain loop                                           |
+| `generationRef`    | Bumped by `resetCube()` so in-flight animation callbacks can detect a reset and become no-ops    |
+| `animStateRef`     | Current move animation state (indices + quaternion) read each frame by CubeRenderer's RAF loop   |
 
 ### Move execution pipeline
 

@@ -12,17 +12,18 @@
 
 ## File Map
 
-| File | Change |
-|------|--------|
-| `src/components/CubeRenderer.tsx` | Replace `mousedown/mousemove/mouseup` useEffect with pointer events; add `touchAction: 'none'` to canvas |
-| `src/hooks/useIsMobile.ts` | New hook — returns `true` when viewport width ≤ 640px |
-| `src/App.tsx` | Add `isMenuOpen` state + `menuRef` + `hamburgerRef`; add outside-tap effect; conditionally render hamburger vs desktop header controls |
+| File                              | Change                                                                                                                                 |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/CubeRenderer.tsx` | Replace `mousedown/mousemove/mouseup` useEffect with pointer events; add `touchAction: 'none'` to canvas                               |
+| `src/hooks/useIsMobile.ts`        | New hook — returns `true` when viewport width ≤ 640px                                                                                  |
+| `src/App.tsx`                     | Add `isMenuOpen` state + `menuRef` + `hamburgerRef`; add outside-tap effect; conditionally render hamburger vs desktop header controls |
 
 ---
 
 ## Task 1: Replace mouse drag with pointer events in CubeRenderer
 
 **Files:**
+
 - Modify: `src/components/CubeRenderer.tsx`
 
 - [ ] **Step 1: Replace the drag useEffect**
@@ -105,6 +106,7 @@
 ## Task 2: Add `useIsMobile` hook
 
 **Files:**
+
 - Create: `src/hooks/useIsMobile.ts`
 
 - [ ] **Step 1: Create the hook**
@@ -155,6 +157,7 @@
 ## Task 3: Responsive hamburger menu in App
 
 **Files:**
+
 - Modify: `src/App.tsx`
 
 - [ ] **Step 1: Import `useIsMobile` and `useRef`**
@@ -211,13 +214,27 @@
 
   ```tsx
   <header style={{ ...headerStyle, position: 'relative' }}>
-    <h1 style={{ fontSize: '1.1rem', fontWeight: 600, letterSpacing: '0.05em', flex: isMobile ? 0 : 1 }}>
+    <h1
+      style={{
+        fontSize: '1.1rem',
+        fontWeight: 600,
+        letterSpacing: '0.05em',
+        flex: isMobile ? 0 : 1,
+      }}
+    >
       Rubik&rsquo;s Cube
     </h1>
 
     {isMobile ? (
       <>
-        <span style={{ fontSize: '0.8rem', color: '#8899aa', fontFamily: 'monospace', marginLeft: 'auto' }}>
+        <span
+          style={{
+            fontSize: '0.8rem',
+            color: '#8899aa',
+            fontFamily: 'monospace',
+            marginLeft: 'auto',
+          }}
+        >
           {queue.historyIndex}/{queue.totalMoves}
           {queue.pendingCount > 0 && ` +${queue.pendingCount}`}
         </span>
@@ -232,18 +249,32 @@
         {isMenuOpen && (
           <div ref={menuRef} style={menuPanelStyle} onClick={() => setIsMenuOpen(false)}>
             <div style={menuRowStyle}>
-              <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>↩ Undo</button>
-              <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>Redo ↪</button>
+              <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>
+                ↩ Undo
+              </button>
+              <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>
+                Redo ↪
+              </button>
             </div>
             <div style={menuRowStyle}>
-              <button onClick={handleScramble} style={resetBtnStyle}>Scramble</button>
-              <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>Solve</button>
-              <button onClick={queue.resetCube} style={resetBtnStyle}>Reset</button>
-              <button onClick={handleResetRotation} style={resetBtnStyle}>Reset rotation</button>
+              <button onClick={handleScramble} style={resetBtnStyle}>
+                Scramble
+              </button>
+              <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>
+                Solve
+              </button>
+              <button onClick={queue.resetCube} style={resetBtnStyle}>
+                Reset
+              </button>
+              <button onClick={handleResetRotation} style={resetBtnStyle}>
+                Reset rotation
+              </button>
             </div>
             <div style={menuRowStyle}>
               {(['x', "x'", 'y', "y'", 'z', "z'"] as const).map((id) => (
-                <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>{id}</button>
+                <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>
+                  {id}
+                </button>
               ))}
             </div>
             <div style={menuRowStyle}>
@@ -255,7 +286,9 @@
                 style={{ ...themeSelectStyle, flex: 1 }}
               >
                 {THEMES.map(({ name }) => (
-                  <option key={name} value={name}>{name}</option>
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -273,15 +306,29 @@
           {queue.historyIndex}/{queue.totalMoves}
           {queue.pendingCount > 0 && ` +${queue.pendingCount}`}
         </span>
-        <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>↩ Undo</button>
-        <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>Redo ↪</button>
-        <button onClick={handleScramble} style={resetBtnStyle}>Scramble</button>
-        <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>Solve</button>
-        <button onClick={queue.resetCube} style={resetBtnStyle}>Reset</button>
-        <button onClick={handleResetRotation} style={resetBtnStyle}>Reset rotation</button>
+        <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>
+          ↩ Undo
+        </button>
+        <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>
+          Redo ↪
+        </button>
+        <button onClick={handleScramble} style={resetBtnStyle}>
+          Scramble
+        </button>
+        <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>
+          Solve
+        </button>
+        <button onClick={queue.resetCube} style={resetBtnStyle}>
+          Reset
+        </button>
+        <button onClick={handleResetRotation} style={resetBtnStyle}>
+          Reset rotation
+        </button>
         <span style={dividerStyle} />
         {(['x', "x'", 'y', "y'", 'z', "z'"] as const).map((id) => (
-          <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>{id}</button>
+          <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>
+            {id}
+          </button>
         ))}
         <span style={dividerStyle} />
         <select
@@ -292,7 +339,9 @@
           style={themeSelectStyle}
         >
           {THEMES.map(({ name }) => (
-            <option key={name} value={name}>{name}</option>
+            <option key={name} value={name}>
+              {name}
+            </option>
           ))}
         </select>
         <button onClick={() => setIsPanelOpen((v) => !v)} style={iconBtnStyle}>
@@ -351,7 +400,6 @@
 - [ ] **Step 8: Manual verification**
 
   Run `yarn dev`, open the app, and verify:
-
   - **Desktop (> 640px):** Header looks identical to before. Mouse drag still rotates the cube.
   - **Mobile (resize browser to < 640px or use DevTools device emulation):**
     - Header shows title, move counter, and ☰ button only.

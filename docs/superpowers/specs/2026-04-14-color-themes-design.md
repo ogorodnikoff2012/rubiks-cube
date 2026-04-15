@@ -37,11 +37,11 @@ import type { ColorCode } from '../types/cube';
 export type Theme = Record<ColorCode, string>; // ColorCode → CSS hex color
 
 export const DEFAULT_THEME: Theme = {
-  WHITE:  '#ffffff',
+  WHITE: '#ffffff',
   YELLOW: '#ffd500',
-  GREEN:  '#009b48',
-  BLUE:   '#0046ad',
-  RED:    '#b71234',
+  GREEN: '#009b48',
+  BLUE: '#0046ad',
+  RED: '#b71234',
   ORANGE: '#ff5800',
 };
 ```
@@ -113,13 +113,13 @@ const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
 
 ## Files changed
 
-| File | Change |
-|------|--------|
-| `src/types/cube.ts` | Add `ColorCode`; change `FaceColors` value type |
-| `src/themes/themes.ts` | **New** — `Theme` type + `DEFAULT_THEME` |
-| `src/model/cube.ts` | `SOLVED_COLORS` values become `ColorCode` |
-| `src/model/moves.ts` | Type-only update to `remapFaceColors` |
+| File                              | Change                                                       |
+| --------------------------------- | ------------------------------------------------------------ |
+| `src/types/cube.ts`               | Add `ColorCode`; change `FaceColors` value type              |
+| `src/themes/themes.ts`            | **New** — `Theme` type + `DEFAULT_THEME`                     |
+| `src/model/cube.ts`               | `SOLVED_COLORS` values become `ColorCode`                    |
+| `src/model/moves.ts`              | Type-only update to `remapFaceColors`                        |
 | `src/components/CubeRenderer.tsx` | Accept `theme` prop; resolve color codes in `buildCubeGroup` |
-| `src/App.tsx` | Hold `theme` state; pass to renderer; add theme-switcher UI |
+| `src/App.tsx`                     | Hold `theme` state; pass to renderer; add theme-switcher UI  |
 
 `src/solver/layerByLayer.ts` and `src/model/pieces.ts` require no changes — they work with whatever string values `SOLVED_COLORS` exposes.
