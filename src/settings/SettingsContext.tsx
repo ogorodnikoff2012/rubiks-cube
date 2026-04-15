@@ -15,6 +15,7 @@ export function SettingsProvider({
   return <SettingsContext.Provider value={settings}>{children}</SettingsContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSettings(): Settings {
   return useContext(SettingsContext);
 }
