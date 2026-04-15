@@ -79,6 +79,10 @@ export interface CubeQueue {
   getCommittedCube: () => CubeModel;
 }
 
+function countMoveActions(actions: CubeAction[]): number {
+  return actions.filter((action) => action.kind === 'move').length;
+}
+
 // --------------------------------------------------------------------------
 // Hook
 // --------------------------------------------------------------------------
@@ -198,7 +202,7 @@ export function useCubeQueue(animService: AnimationService): CubeQueue {
 
     const [action, ...rest] = queueRef.current;
     queueRef.current = rest;
-    setPendingCount(rest.length);
+    setPendingCount(countMoveActions(rest));
 
     switch (action.kind) {
       case 'effect': {
@@ -274,7 +278,7 @@ export function useCubeQueue(animService: AnimationService): CubeQueue {
   // ── Public interface ──────────────────────────────────────────────────────
   const dispatch = useCallback((...actions: CubeAction[]) => {
     queueRef.current = [...queueRef.current, ...actions];
-    setPendingCount(queueRef.current.length);
+    setPendingCount(countMoveActions(queueRef.current));
   }, []);
 
   const cancel = useCallback(() => {
