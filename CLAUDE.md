@@ -4,7 +4,7 @@
 
 ```bash
 yarn install
-yarn dev        # Vite dev server at http://localhost:5173
+yarn dev        # Vite dev server at http://localhost:5173/rubiks-cube/
 yarn build      # tsc + Vite production build → dist/
 yarn lint       # ESLint
 yarn format     # Prettier (write)
@@ -22,6 +22,21 @@ yarn format:check
 | Package manager | Yarn classic (v1)                                                                          |
 | Linter          | ESLint 9 flat config — `typescript-eslint` strict + `react-hooks` + `react-refresh`        |
 | Formatter       | Prettier — single quotes, trailing commas, 100-char width                                  |
+
+---
+
+## Deployment
+
+**Live URL:** `https://ogorodnikoff2012.github.io/rubiks-cube/`
+
+Deployed automatically via GitHub Actions on every push to `master`. The workflow (`.github/workflows/ci.yml`) has two jobs:
+
+- **`ci`** — runs `yarn lint`, `yarn format:check`, `yarn build` on every push and PR
+- **`deploy`** — builds and publishes to GitHub Pages via OIDC; runs only on `master` push, requires `ci` to pass
+
+`vite.config.ts` sets `base: '/rubiks-cube/'` so all built asset paths are prefixed for the Pages subdirectory. The dev server also serves at `/rubiks-cube/` rather than `/`.
+
+**Branch protection on `master`:** PRs required before merging; the `CI / ci` status check must pass; force push disabled.
 
 ---
 
