@@ -12,8 +12,10 @@ import type { MoveId } from './model/moves';
 import { useCubeQueue } from './hooks/useCubeQueue';
 import type { CubeAction } from './hooks/useCubeQueue';
 import { useIsMobile } from './hooks/useIsMobile';
-import { DEFAULT_THEME, THEMES } from './themes/themes';
-import type { Theme } from './themes/themes';
+import { THEMES } from './themes/themes';
+import { DEFAULT_SETTINGS, resolveTheme } from './settings/settings';
+import type { Settings } from './settings/settings';
+import { SettingsProvider, useSettings } from './settings/SettingsContext';
 import { SOLVED_COLORS } from './model/cube';
 import type { FaceKey } from './types/cube';
 
@@ -55,10 +57,11 @@ interface MovePairProps {
   cw: MoveId;
   ccw: MoveId;
   onMove: (id: MoveId) => void;
-  theme: Theme;
 }
 
-function MovePair({ cw, ccw, onMove, theme }: MovePairProps) {
+function MovePair({ cw, ccw, onMove }: MovePairProps) {
+  const { themeName } = useSettings();
+  const theme = resolveTheme(themeName);
   const face = cw.replace("'", '') as FaceKey;
   const accent = theme[SOLVED_COLORS[face]] ?? '#888';
   return (
@@ -122,8 +125,17 @@ export default function App() {
   const canUndo = queue.historyIndex > 0 && !isBusy;
   const canRedo = queue.historyIndex < queue.totalMoves && !isBusy;
 
-  // ── Theme ─────────────────────────────────────────────────────────────────
-  const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
+  // ── Settings (persisted to localStorage) ─────────────────────────────────
+  const [settings, setSettings] = useState<Settings>(() => {
+    try {
+      const raw = localStorage.getItem('rubiks-cube-settings');
+      if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } as Settings;
+    } catch {
+      // ignore
+    }
+    return DEFAULT_SETTINGS;
+  });
+  const theme = resolveTheme(settings.themeName);
 
   // ── Solver panel ─────────────────────────────────────────────────────────
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -243,240 +255,238 @@ export default function App() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
-    >
-      <header style={{ ...headerStyle, position: 'relative' }}>
-        <h1
-          style={{
-            fontSize: '1.1rem',
-            fontWeight: 600,
-            letterSpacing: '0.05em',
-            flex: isMobile ? 0 : 1,
-          }}
-        >
-          Rubik&rsquo;s Cube
-        </h1>
+    <SettingsProvider settings={settings}>
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        <header style={{ ...headerStyle, position: 'relative' }}>
+          <h1
+            style={{
+              fontSize: '1.1rem',
+              fontWeight: 600,
+              letterSpacing: '0.05em',
+              flex: isMobile ? 0 : 1,
+            }}
+          >
+            Rubik&rsquo;s Cube
+          </h1>
 
-        {isMobile ? (
-          <>
-            <span
-              style={{
-                fontSize: '0.8rem',
-                color: '#8899aa',
-                fontFamily: 'monospace',
-                marginLeft: 'auto',
-              }}
-            >
-              {queue.historyIndex}/{queue.totalMoves}
-              {queue.pendingCount > 0 && ` +${queue.pendingCount}`}
-            </span>
-            <button
-              ref={hamburgerRef}
-              onClick={() => setIsMenuOpen((v) => !v)}
-              style={hamburgerBtnStyle}
-              aria-label="Menu"
-            >
-              {isMenuOpen ? '✕' : '☰'}
-            </button>
-            {isMenuOpen && (
-              <div ref={menuRef} style={menuPanelStyle} onClick={() => setIsMenuOpen(false)}>
-                <div style={menuRowStyle}>
-                  <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>
-                    ↩ Undo
-                  </button>
-                  <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>
-                    Redo ↪
-                  </button>
-                </div>
-                <div style={menuRowStyle}>
-                  <button onClick={handleScramble} style={resetBtnStyle}>
-                    Scramble
-                  </button>
-                  <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>
-                    Solve
-                  </button>
-                  <button onClick={queue.resetCube} style={resetBtnStyle}>
-                    Reset
-                  </button>
-                  <button onClick={handleResetRotation} style={resetBtnStyle}>
-                    Reset rotation
-                  </button>
-                </div>
-                <div style={menuRowStyle}>
-                  {(['x', "x'", 'y', "y'", 'z', "z'"] as const).map((id) => (
-                    <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>
-                      {id}
-                    </button>
-                  ))}
-                </div>
-                <div style={menuRowStyle} onClick={(e) => e.stopPropagation()}>
-                  <select
-                    value={THEMES.find((t) => t.theme === theme)?.name ?? THEMES[0].name}
-                    onChange={(e) =>
-                      setTheme(
-                        THEMES.find((t) => t.name === e.target.value)?.theme || DEFAULT_THEME,
-                      )
-                    }
-                    style={{ ...themeSelectStyle, flex: 1 }}
-                  >
-                    {THEMES.map(({ name }) => (
-                      <option key={name} value={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div style={menuRowStyle}>
-                  <button onClick={() => setIsPanelOpen((v) => !v)} style={iconBtnStyle}>
-                    {isPanelOpen ? 'Solver ◀' : 'Solver ▶'}
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <span style={{ fontSize: '0.8rem', color: '#8899aa', fontFamily: 'monospace' }}>
-              {queue.historyIndex}/{queue.totalMoves}
-              {queue.pendingCount > 0 && ` +${queue.pendingCount}`}
-            </span>
-            <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>
-              ↩ Undo
-            </button>
-            <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>
-              Redo ↪
-            </button>
-            <button onClick={handleScramble} style={resetBtnStyle}>
-              Scramble
-            </button>
-            <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>
-              Solve
-            </button>
-            <button onClick={queue.resetCube} style={resetBtnStyle}>
-              Reset
-            </button>
-            <button onClick={handleResetRotation} style={resetBtnStyle}>
-              Reset rotation
-            </button>
-            <span style={dividerStyle} />
-            {(['x', "x'", 'y', "y'", 'z', "z'"] as const).map((id) => (
-              <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>
-                {id}
+          {isMobile ? (
+            <>
+              <span
+                style={{
+                  fontSize: '0.8rem',
+                  color: '#8899aa',
+                  fontFamily: 'monospace',
+                  marginLeft: 'auto',
+                }}
+              >
+                {queue.historyIndex}/{queue.totalMoves}
+                {queue.pendingCount > 0 && ` +${queue.pendingCount}`}
+              </span>
+              <button
+                ref={hamburgerRef}
+                onClick={() => setIsMenuOpen((v) => !v)}
+                style={hamburgerBtnStyle}
+                aria-label="Menu"
+              >
+                {isMenuOpen ? '✕' : '☰'}
               </button>
-            ))}
-            <span style={dividerStyle} />
-            <select
-              value={THEMES.find((t) => t.theme === theme)?.name ?? THEMES[0].name}
-              onChange={(e) =>
-                setTheme(THEMES.find((t) => t.name === e.target.value)?.theme || DEFAULT_THEME)
-              }
-              style={themeSelectStyle}
-            >
-              {THEMES.map(({ name }) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
+              {isMenuOpen && (
+                <div ref={menuRef} style={menuPanelStyle} onClick={() => setIsMenuOpen(false)}>
+                  <div style={menuRowStyle}>
+                    <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>
+                      ↩ Undo
+                    </button>
+                    <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>
+                      Redo ↪
+                    </button>
+                  </div>
+                  <div style={menuRowStyle}>
+                    <button onClick={handleScramble} style={resetBtnStyle}>
+                      Scramble
+                    </button>
+                    <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>
+                      Solve
+                    </button>
+                    <button onClick={queue.resetCube} style={resetBtnStyle}>
+                      Reset
+                    </button>
+                    <button onClick={handleResetRotation} style={resetBtnStyle}>
+                      Reset rotation
+                    </button>
+                  </div>
+                  <div style={menuRowStyle}>
+                    {(['x', "x'", 'y', "y'", 'z', "z'"] as const).map((id) => (
+                      <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>
+                        {id}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={menuRowStyle} onClick={(e) => e.stopPropagation()}>
+                    <select
+                      value={settings.themeName}
+                      onChange={(e) => {
+                        const newSettings: Settings = { ...settings, themeName: e.target.value };
+                        setSettings(newSettings);
+                        localStorage.setItem('rubiks-cube-settings', JSON.stringify(newSettings));
+                      }}
+                      style={{ ...themeSelectStyle, flex: 1 }}
+                    >
+                      {THEMES.map(({ name }) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={menuRowStyle}>
+                    <button onClick={() => setIsPanelOpen((v) => !v)} style={iconBtnStyle}>
+                      {isPanelOpen ? 'Solver ◀' : 'Solver ▶'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize: '0.8rem', color: '#8899aa', fontFamily: 'monospace' }}>
+                {queue.historyIndex}/{queue.totalMoves}
+                {queue.pendingCount > 0 && ` +${queue.pendingCount}`}
+              </span>
+              <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>
+                ↩ Undo
+              </button>
+              <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>
+                Redo ↪
+              </button>
+              <button onClick={handleScramble} style={resetBtnStyle}>
+                Scramble
+              </button>
+              <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>
+                Solve
+              </button>
+              <button onClick={queue.resetCube} style={resetBtnStyle}>
+                Reset
+              </button>
+              <button onClick={handleResetRotation} style={resetBtnStyle}>
+                Reset rotation
+              </button>
+              <span style={dividerStyle} />
+              {(['x', "x'", 'y', "y'", 'z', "z'"] as const).map((id) => (
+                <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>
+                  {id}
+                </button>
               ))}
-            </select>
-            <button onClick={() => setIsPanelOpen((v) => !v)} style={iconBtnStyle}>
-              {isPanelOpen ? 'Solver ◀' : 'Solver ▶'}
-            </button>
-          </>
-        )}
-      </header>
+              <span style={dividerStyle} />
+              <select
+                value={settings.themeName}
+                onChange={(e) => {
+                  const newSettings: Settings = { ...settings, themeName: e.target.value };
+                  setSettings(newSettings);
+                  localStorage.setItem('rubiks-cube-settings', JSON.stringify(newSettings));
+                }}
+                style={themeSelectStyle}
+              >
+                {THEMES.map(({ name }) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <button onClick={() => setIsPanelOpen((v) => !v)} style={iconBtnStyle}>
+                {isPanelOpen ? 'Solver ◀' : 'Solver ▶'}
+              </button>
+            </>
+          )}
+        </header>
 
-      <div style={bodyStyle}>
-        {isMobile && isPortrait ? (
-          /* ── Portrait mobile: cube on top, button bar at bottom ── */
-          <main style={mobileMainStyle}>
-            <div style={{ flex: 1, minHeight: 0 }}>
-              <CubeRenderer
-                model={queue.cube}
-                rotationRef={rotationRef}
-                animStateRef={queue.animStateRef}
-                theme={theme}
-              />
-            </div>
-            <div style={mobileButtonBarStyle}>
-              {(['L', 'R', 'U', 'D', 'F', 'B'] as const).map((face) => (
-                <MovePair
-                  key={face}
-                  cw={face}
-                  ccw={`${face}'` as MoveId}
-                  onMove={move}
+        <div style={bodyStyle}>
+          {isMobile && isPortrait ? (
+            /* ── Portrait mobile: cube on top, button bar at bottom ── */
+            <main style={mobileMainStyle}>
+              <div style={{ flex: 1, minHeight: 0 }}>
+                <CubeRenderer
+                  model={queue.cube}
+                  rotationRef={rotationRef}
+                  animStateRef={queue.animStateRef}
                   theme={theme}
                 />
-              ))}
-            </div>
-          </main>
-        ) : isMobile ? (
-          /* ── Landscape mobile: side columns flanking the cube ── */
-          <main style={mobileLandscapeStyle}>
-            <div style={mobileSideColumnStyle}>
-              <MovePair cw="U" ccw="U'" onMove={move} theme={theme} />
-              <MovePair cw="L" ccw="L'" onMove={move} theme={theme} />
-              <MovePair cw="F" ccw="F'" onMove={move} theme={theme} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
+              </div>
+              <div style={mobileButtonBarStyle}>
+                {(['L', 'R', 'U', 'D', 'F', 'B'] as const).map((face) => (
+                  <MovePair key={face} cw={face} ccw={`${face}'` as MoveId} onMove={move} />
+                ))}
+              </div>
+            </main>
+          ) : isMobile ? (
+            /* ── Landscape mobile: side columns flanking the cube ── */
+            <main style={mobileLandscapeStyle}>
+              <div style={mobileSideColumnStyle}>
+                <MovePair cw="U" ccw="U'" onMove={move} />
+                <MovePair cw="L" ccw="L'" onMove={move} />
+                <MovePair cw="F" ccw="F'" onMove={move} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <CubeRenderer
+                  model={queue.cube}
+                  rotationRef={rotationRef}
+                  animStateRef={queue.animStateRef}
+                  theme={theme}
+                />
+              </div>
+              <div style={mobileSideColumnStyle}>
+                <MovePair cw="D" ccw="D'" onMove={move} />
+                <MovePair cw="R" ccw="R'" onMove={move} />
+                <MovePair cw="B" ccw="B'" onMove={move} />
+              </div>
+            </main>
+          ) : (
+            <main style={mainGridStyle}>
+              {/* Row 1 */}
+              <div />
+              <div style={centreSlot}>
+                <MovePair cw="U" ccw="U'" onMove={move} />
+              </div>
+              <div />
+
+              {/* Row 2 */}
+              <div style={centreSlot}>
+                <MovePair cw="L" ccw="L'" onMove={move} />
+              </div>
               <CubeRenderer
                 model={queue.cube}
                 rotationRef={rotationRef}
                 animStateRef={queue.animStateRef}
                 theme={theme}
               />
-            </div>
-            <div style={mobileSideColumnStyle}>
-              <MovePair cw="D" ccw="D'" onMove={move} theme={theme} />
-              <MovePair cw="R" ccw="R'" onMove={move} theme={theme} />
-              <MovePair cw="B" ccw="B'" onMove={move} theme={theme} />
-            </div>
-          </main>
-        ) : (
-          <main style={mainGridStyle}>
-            {/* Row 1 */}
-            <div />
-            <div style={centreSlot}>
-              <MovePair cw="U" ccw="U'" onMove={move} theme={theme} />
-            </div>
-            <div />
+              <div style={centreSlot}>
+                <MovePair cw="R" ccw="R'" onMove={move} />
+              </div>
 
-            {/* Row 2 */}
-            <div style={centreSlot}>
-              <MovePair cw="L" ccw="L'" onMove={move} theme={theme} />
-            </div>
-            <CubeRenderer
-              model={queue.cube}
-              rotationRef={rotationRef}
-              animStateRef={queue.animStateRef}
-              theme={theme}
-            />
-            <div style={centreSlot}>
-              <MovePair cw="R" ccw="R'" onMove={move} theme={theme} />
-            </div>
+              {/* Row 3 – F bottom-left, D centre, B bottom-right */}
+              <div style={centreSlot}>
+                <MovePair cw="F" ccw="F'" onMove={move} />
+              </div>
+              <div style={centreSlot}>
+                <MovePair cw="D" ccw="D'" onMove={move} />
+              </div>
+              <div style={centreSlot}>
+                <MovePair cw="B" ccw="B'" onMove={move} />
+              </div>
+            </main>
+          )}
 
-            {/* Row 3 – F bottom-left, D centre, B bottom-right */}
-            <div style={centreSlot}>
-              <MovePair cw="F" ccw="F'" onMove={move} theme={theme} />
-            </div>
-            <div style={centreSlot}>
-              <MovePair cw="D" ccw="D'" onMove={move} theme={theme} />
-            </div>
-            <div style={centreSlot}>
-              <MovePair cw="B" ccw="B'" onMove={move} theme={theme} />
-            </div>
-          </main>
-        )}
-
-        {isPanelOpen && <SolverPanel lines={solverLog} />}
+          {isPanelOpen && <SolverPanel lines={solverLog} />}
+        </div>
       </div>
-    </div>
+    </SettingsProvider>
   );
 }
 
