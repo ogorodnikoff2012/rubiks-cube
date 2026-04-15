@@ -36,7 +36,7 @@ Deployed automatically via GitHub Actions on every push to `master`. The workflo
 
 `vite.config.ts` sets `base: '/rubiks-cube/'` so all built asset paths are prefixed for the Pages subdirectory. The dev server also serves at `/rubiks-cube/` rather than `/`.
 
-**Branch protection on `master`:** PRs required before merging (enforced for all users including admins); the `CI / ci (pull_request)` status check must pass; force push disabled.
+**Branch protection on `master`:** PRs required before merging (enforced for all users including admins); the `ci` status check (GitHub Actions `ci` job) must pass; force push disabled.
 
 **Never commit directly to `master`.** Always create a feature branch and open a PR.
 
