@@ -523,6 +523,8 @@ const mobileLandscapeStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'row',
   overflow: 'hidden',
+  paddingLeft: 'env(safe-area-inset-left)',
+  paddingRight: 'env(safe-area-inset-right)',
 };
 
 const mobileSideColumnStyle: React.CSSProperties = {
