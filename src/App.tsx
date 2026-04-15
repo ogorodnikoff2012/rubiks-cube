@@ -489,6 +489,7 @@ const mobileButtonBarStyle: React.CSSProperties = {
   justifyContent: 'space-around',
   alignItems: 'center',
   padding: '8px',
+  paddingBottom: 'calc(8px + env(safe-area-inset-bottom))',
   gap: 8,
   flexShrink: 0,
 };
