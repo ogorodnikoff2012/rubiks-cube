@@ -80,7 +80,7 @@ export interface CubeQueue {
 }
 
 function countMoveActions(actions: CubeAction[]): number {
-  return actions.filter(action => action.kind === 'move').length;
+  return actions.filter((action) => action.kind === 'move').length;
 }
 
 // --------------------------------------------------------------------------
