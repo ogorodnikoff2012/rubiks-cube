@@ -38,6 +38,8 @@ Deployed automatically via GitHub Actions on every push to `master`. The workflo
 
 **Branch protection on `master`:** PRs required before merging; the `CI / ci` status check must pass; force push disabled.
 
+**Never commit directly to `master`.** Always create a feature branch and open a PR.
+
 ---
 
 ## Repository layout
