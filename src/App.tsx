@@ -12,10 +12,12 @@ import type { MoveId } from './model/moves';
 import { useCubeQueue } from './hooks/useCubeQueue';
 import type { CubeAction } from './hooks/useCubeQueue';
 import { useIsMobile } from './hooks/useIsMobile';
-import { DEFAULT_THEME } from './themes/themes';
-import type { Theme } from './themes/themes';
+import { DEFAULT_SETTINGS } from './settings/settings';
+import type { Settings } from './settings/settings';
+import { SettingsProvider } from './settings/SettingsContext';
 
 const SCRAMBLE_MOVES = 50;
+const SETTINGS_KEY = 'rubiks-cube-settings';
 
 const INITIAL_ROTATION = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.35, -0.52, 0));
 const RESET_ROTATION_MS = 700;
@@ -84,8 +86,22 @@ export default function App() {
   const canUndo = queue.historyIndex > 0 && !isBusy;
   const canRedo = queue.historyIndex < queue.totalMoves && !isBusy;
 
-  // ── Theme ─────────────────────────────────────────────────────────────────
-  const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
+  // ── Settings (persisted to localStorage) ─────────────────────────────────
+  const [settings, setSettings] = useState<Settings>(() => {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    } catch {
+      // ignore
+    }
+    return DEFAULT_SETTINGS;
+  });
+
+  const handleThemeChange = (themeName: string) => {
+    const newSettings: Settings = { ...settings, themeName };
+    setSettings(newSettings);
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
+  };
 
   // ── Solver panel ─────────────────────────────────────────────────────────
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -186,46 +202,46 @@ export default function App() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
-    >
-      <AppHeader
-        isMobile={isMobile}
-        historyIndex={queue.historyIndex}
-        totalMoves={queue.totalMoves}
-        pendingCount={queue.pendingCount}
-        isBusy={isBusy}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-        onScramble={handleScramble}
-        onSolve={handleSolve}
-        onResetCube={queue.resetCube}
-        onResetRotation={handleResetRotation}
-        onMove={move}
-        theme={theme}
-        onThemeChange={setTheme}
-        isPanelOpen={isPanelOpen}
-        onTogglePanel={() => setIsPanelOpen((v) => !v)}
-      />
-      <CubeLayout
-        isMobile={isMobile}
-        isPortrait={isPortrait}
-        cube={queue.cube}
-        rotationRef={rotationRef}
-        animStateRef={queue.animStateRef}
-        theme={theme}
-        onMove={move}
-        isPanelOpen={isPanelOpen}
-        solverLog={solverLog}
-      />
-    </div>
+    <SettingsProvider settings={settings}>
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
+        <AppHeader
+          isMobile={isMobile}
+          historyIndex={queue.historyIndex}
+          totalMoves={queue.totalMoves}
+          pendingCount={queue.pendingCount}
+          isBusy={isBusy}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onScramble={handleScramble}
+          onSolve={handleSolve}
+          onResetCube={queue.resetCube}
+          onResetRotation={handleResetRotation}
+          onMove={move}
+          onThemeChange={handleThemeChange}
+          isPanelOpen={isPanelOpen}
+          onTogglePanel={() => setIsPanelOpen((v) => !v)}
+        />
+        <CubeLayout
+          isMobile={isMobile}
+          isPortrait={isPortrait}
+          cube={queue.cube}
+          rotationRef={rotationRef}
+          animStateRef={queue.animStateRef}
+          onMove={move}
+          isPanelOpen={isPanelOpen}
+          solverLog={solverLog}
+        />
+      </div>
+    </SettingsProvider>
   );
 }

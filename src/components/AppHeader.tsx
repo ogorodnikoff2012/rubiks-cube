@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { DEFAULT_THEME, THEMES } from '../themes/themes';
-import type { Theme } from '../themes/themes';
+import { THEMES } from '../themes/themes';
 import type { MoveId } from '../model/moves';
+import { useSettings } from '../settings/SettingsContext';
 
 interface Props {
   isMobile: boolean;
@@ -18,8 +18,7 @@ interface Props {
   onResetCube: () => void;
   onResetRotation: () => void;
   onMove: (id: MoveId) => void;
-  theme: Theme;
-  onThemeChange: (theme: Theme) => void;
+  onThemeChange: (themeName: string) => void;
   isPanelOpen: boolean;
   onTogglePanel: () => void;
 }
@@ -41,7 +40,6 @@ export default function AppHeader({
   onResetCube,
   onResetRotation,
   onMove,
-  theme,
   onThemeChange,
   isPanelOpen,
   onTogglePanel,
@@ -65,9 +63,9 @@ export default function AppHeader({
     return () => window.removeEventListener('pointerdown', onPointerDown);
   }, [isMenuOpen]);
 
-  const currentThemeName = THEMES.find((t) => t.theme === theme)?.name ?? THEMES[0].name;
+  const { themeName: currentThemeName } = useSettings();
   const handleThemeSelect = (e: React.ChangeEvent<HTMLSelectElement>) =>
-    onThemeChange(THEMES.find((t) => t.name === e.target.value)?.theme ?? DEFAULT_THEME);
+    onThemeChange(e.target.value);
 
   const histCounter = (
     <span style={historyCounterStyle}>

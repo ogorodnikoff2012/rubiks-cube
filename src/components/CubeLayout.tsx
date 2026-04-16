@@ -5,9 +5,10 @@ import SolverPanel from './SolverPanel';
 import type { CubeModel } from '../types/cube';
 import type { FaceKey } from '../types/cube';
 import type { MoveId } from '../model/moves';
-import type { Theme } from '../themes/themes';
 import type { AnimState } from '../animation/MoveAnimation';
 import { SOLVED_COLORS } from '../model/cube';
+import { useSettings } from '../settings/SettingsContext';
+import { resolveTheme } from '../settings/settings';
 
 interface Props {
   isMobile: boolean;
@@ -15,7 +16,6 @@ interface Props {
   cube: CubeModel;
   rotationRef: React.MutableRefObject<THREE.Quaternion>;
   animStateRef: React.MutableRefObject<AnimState>;
-  theme: Theme;
   onMove: (id: MoveId) => void;
   isPanelOpen: boolean;
   solverLog: string[];
@@ -25,10 +25,11 @@ interface MovePairProps {
   cw: MoveId;
   ccw: MoveId;
   onMove: (id: MoveId) => void;
-  theme: Theme;
 }
 
-function MovePair({ cw, ccw, onMove, theme }: MovePairProps) {
+function MovePair({ cw, ccw, onMove }: MovePairProps) {
+  const { themeName } = useSettings();
+  const theme = resolveTheme(themeName);
   const face = cw.replace("'", '') as FaceKey;
   const accent = theme[SOLVED_COLORS[face]] ?? '#888';
   return (
@@ -52,18 +53,12 @@ export default function CubeLayout({
   cube,
   rotationRef,
   animStateRef,
-  theme,
   onMove,
   isPanelOpen,
   solverLog,
 }: Props) {
   const renderer = (
-    <CubeRenderer
-      model={cube}
-      rotationRef={rotationRef}
-      animStateRef={animStateRef}
-      theme={theme}
-    />
+    <CubeRenderer model={cube} rotationRef={rotationRef} animStateRef={animStateRef} />
   );
 
   let main: React.ReactNode;
@@ -74,13 +69,7 @@ export default function CubeLayout({
         <div style={{ flex: 1, minHeight: 0 }}>{renderer}</div>
         <div style={mobileButtonBarStyle}>
           {(['L', 'R', 'U', 'D', 'F', 'B'] as const).map((face) => (
-            <MovePair
-              key={face}
-              cw={face}
-              ccw={`${face}'` as MoveId}
-              onMove={onMove}
-              theme={theme}
-            />
+            <MovePair key={face} cw={face} ccw={`${face}'` as MoveId} onMove={onMove} />
           ))}
         </div>
       </main>
@@ -89,15 +78,15 @@ export default function CubeLayout({
     main = (
       <main style={mobileLandscapeStyle}>
         <div style={mobileSideColumnStyle}>
-          <MovePair cw="U" ccw="U'" onMove={onMove} theme={theme} />
-          <MovePair cw="L" ccw="L'" onMove={onMove} theme={theme} />
-          <MovePair cw="F" ccw="F'" onMove={onMove} theme={theme} />
+          <MovePair cw="U" ccw="U'" onMove={onMove} />
+          <MovePair cw="L" ccw="L'" onMove={onMove} />
+          <MovePair cw="F" ccw="F'" onMove={onMove} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>{renderer}</div>
         <div style={mobileSideColumnStyle}>
-          <MovePair cw="D" ccw="D'" onMove={onMove} theme={theme} />
-          <MovePair cw="R" ccw="R'" onMove={onMove} theme={theme} />
-          <MovePair cw="B" ccw="B'" onMove={onMove} theme={theme} />
+          <MovePair cw="D" ccw="D'" onMove={onMove} />
+          <MovePair cw="R" ccw="R'" onMove={onMove} />
+          <MovePair cw="B" ccw="B'" onMove={onMove} />
         </div>
       </main>
     );
@@ -107,26 +96,26 @@ export default function CubeLayout({
         {/* Row 1 */}
         <div />
         <div style={centreSlot}>
-          <MovePair cw="U" ccw="U'" onMove={onMove} theme={theme} />
+          <MovePair cw="U" ccw="U'" onMove={onMove} />
         </div>
         <div />
         {/* Row 2 */}
         <div style={centreSlot}>
-          <MovePair cw="L" ccw="L'" onMove={onMove} theme={theme} />
+          <MovePair cw="L" ccw="L'" onMove={onMove} />
         </div>
         {renderer}
         <div style={centreSlot}>
-          <MovePair cw="R" ccw="R'" onMove={onMove} theme={theme} />
+          <MovePair cw="R" ccw="R'" onMove={onMove} />
         </div>
         {/* Row 3 */}
         <div style={centreSlot}>
-          <MovePair cw="F" ccw="F'" onMove={onMove} theme={theme} />
+          <MovePair cw="F" ccw="F'" onMove={onMove} />
         </div>
         <div style={centreSlot}>
-          <MovePair cw="D" ccw="D'" onMove={onMove} theme={theme} />
+          <MovePair cw="D" ccw="D'" onMove={onMove} />
         </div>
         <div style={centreSlot}>
-          <MovePair cw="B" ccw="B'" onMove={onMove} theme={theme} />
+          <MovePair cw="B" ccw="B'" onMove={onMove} />
         </div>
       </main>
     );
