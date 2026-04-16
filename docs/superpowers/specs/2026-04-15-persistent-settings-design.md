@@ -68,10 +68,10 @@ export function useSettings(): Settings {
 
 ## Component changes
 
-| Component | Before | After |
-|-----------|--------|-------|
+| Component      | Before                       | After                                                 |
+| -------------- | ---------------------------- | ----------------------------------------------------- |
 | `CubeRenderer` | receives `theme: Theme` prop | calls `useSettings()`, derives theme from `themeName` |
-| `MovePair` | receives `theme: Theme` prop | calls `useSettings()`, derives theme from `themeName` |
+| `MovePair`     | receives `theme: Theme` prop | calls `useSettings()`, derives theme from `themeName` |
 
 The `theme` prop is removed from both component signatures. Call sites in `App` no longer pass it.
 

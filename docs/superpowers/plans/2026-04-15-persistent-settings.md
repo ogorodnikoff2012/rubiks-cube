@@ -12,18 +12,19 @@
 
 ## File Map
 
-| Action | Path | Responsibility |
-|--------|------|----------------|
-| Create | `src/settings/settings.ts` | `Settings` interface + `DEFAULT_SETTINGS` constant |
-| Create | `src/settings/SettingsContext.tsx` | `SettingsProvider` component + `useSettings()` hook |
-| Modify | `src/App.tsx` | Settings state, localStorage load/save, provider wrap, `MovePair` prop removal |
-| Modify | `src/components/CubeRenderer.tsx` | Drop `theme` prop, read from context |
+| Action | Path                               | Responsibility                                                                 |
+| ------ | ---------------------------------- | ------------------------------------------------------------------------------ |
+| Create | `src/settings/settings.ts`         | `Settings` interface + `DEFAULT_SETTINGS` constant                             |
+| Create | `src/settings/SettingsContext.tsx` | `SettingsProvider` component + `useSettings()` hook                            |
+| Modify | `src/App.tsx`                      | Settings state, localStorage load/save, provider wrap, `MovePair` prop removal |
+| Modify | `src/components/CubeRenderer.tsx`  | Drop `theme` prop, read from context                                           |
 
 ---
 
 ## Task 1: Create `src/settings/settings.ts`
 
 **Files:**
+
 - Create: `src/settings/settings.ts`
 
 - [ ] **Step 1: Create the file**
@@ -66,6 +67,7 @@ git commit -m "feat: add Settings type and resolveTheme helper"
 ## Task 2: Create `src/settings/SettingsContext.tsx`
 
 **Files:**
+
 - Create: `src/settings/SettingsContext.tsx`
 
 - [ ] **Step 1: Create the file**
@@ -113,9 +115,11 @@ git commit -m "feat: add SettingsProvider and useSettings hook"
 ## Task 3: Update `App.tsx` — settings state, localStorage, provider, `MovePair`
 
 **Files:**
+
 - Modify: `src/App.tsx`
 
 This task:
+
 1. Adds `Settings` state initialised from `localStorage`.
 2. Writes to `localStorage` when settings change.
 3. Wraps the render output in `<SettingsProvider>`.
@@ -127,12 +131,14 @@ This task:
 - [ ] **Step 1: Update imports at the top of `src/App.tsx`**
 
 Replace:
+
 ```ts
 import { DEFAULT_THEME, THEMES } from './themes/themes';
 import type { Theme } from './themes/themes';
 ```
 
 With:
+
 ```ts
 import { THEMES } from './themes/themes';
 import { DEFAULT_SETTINGS, resolveTheme } from './settings/settings';
@@ -175,11 +181,13 @@ function MovePair({ cw, ccw, onMove }: MovePairProps) {
 - [ ] **Step 3: Replace the `theme` state with `settings` state**
 
 Replace:
+
 ```ts
 const [theme, setTheme] = useState<Theme>(DEFAULT_THEME);
 ```
 
 With:
+
 ```ts
 const [settings, setSettings] = useState<Settings>(() => {
   try {
@@ -299,6 +307,7 @@ git commit -m "feat: wire settings state, localStorage persistence, and Settings
 ## Task 4: Update `CubeRenderer.tsx` — drop `theme` prop, read from context
 
 **Files:**
+
 - Modify: `src/components/CubeRenderer.tsx`
 
 - [ ] **Step 1: Add settings imports**

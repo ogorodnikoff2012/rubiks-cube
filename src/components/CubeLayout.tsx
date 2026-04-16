@@ -58,11 +58,7 @@ export default function CubeLayout({
   solverLog,
 }: Props) {
   const renderer = (
-    <CubeRenderer
-      model={cube}
-      rotationRef={rotationRef}
-      animStateRef={animStateRef}
-    />
+    <CubeRenderer model={cube} rotationRef={rotationRef} animStateRef={animStateRef} />
   );
 
   let main: React.ReactNode;
@@ -73,12 +69,7 @@ export default function CubeLayout({
         <div style={{ flex: 1, minHeight: 0 }}>{renderer}</div>
         <div style={mobileButtonBarStyle}>
           {(['L', 'R', 'U', 'D', 'F', 'B'] as const).map((face) => (
-            <MovePair
-              key={face}
-              cw={face}
-              ccw={`${face}'` as MoveId}
-              onMove={onMove}
-                         />
+            <MovePair key={face} cw={face} ccw={`${face}'` as MoveId} onMove={onMove} />
           ))}
         </div>
       </main>
