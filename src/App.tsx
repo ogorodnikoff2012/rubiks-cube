@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import CubeRenderer from './components/CubeRenderer';
-import SolverPanel from './components/SolverPanel';
+import AppHeader from './components/AppHeader';
+import CubeLayout from './components/CubeLayout';
 import { AnimationService } from './animation/AnimationService';
 import { EasedAnimation } from './animation/EasedAnimation';
 import { RotationAnimation } from './animation/RotationAnimation';
@@ -12,12 +12,9 @@ import type { MoveId } from './model/moves';
 import { useCubeQueue } from './hooks/useCubeQueue';
 import type { CubeAction } from './hooks/useCubeQueue';
 import { useIsMobile } from './hooks/useIsMobile';
-import { THEMES } from './themes/themes';
-import { DEFAULT_SETTINGS, resolveTheme } from './settings/settings';
+import { DEFAULT_SETTINGS } from './settings/settings';
 import type { Settings } from './settings/settings';
-import { SettingsProvider, useSettings } from './settings/SettingsContext';
-import { SOLVED_COLORS } from './model/cube';
-import type { FaceKey } from './types/cube';
+import { SettingsProvider } from './settings/SettingsContext';
 
 const SCRAMBLE_MOVES = 50;
 const SETTINGS_KEY = 'rubiks-cube-settings';
@@ -50,40 +47,6 @@ const HOTKEYS: Record<string, MoveId> = {
   Z: "z'",
 };
 
-// --------------------------------------------------------------------------
-// Small presentational components
-// --------------------------------------------------------------------------
-
-interface MovePairProps {
-  cw: MoveId;
-  ccw: MoveId;
-  onMove: (id: MoveId) => void;
-}
-
-function MovePair({ cw, ccw, onMove }: MovePairProps) {
-  const { themeName } = useSettings();
-  const theme = resolveTheme(themeName);
-  const face = cw.replace("'", '') as FaceKey;
-  const accent = theme[SOLVED_COLORS[face]] ?? '#888';
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
-      {[cw, ccw].map((id) => (
-        <button
-          key={id}
-          onClick={() => onMove(id)}
-          style={{ ...moveBtnBase, borderColor: accent, color: accent }}
-        >
-          {id}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// --------------------------------------------------------------------------
-// App
-// --------------------------------------------------------------------------
-
 export default function App() {
   // ── Animation service ─────────────────────────────────────────────────────
   const animService = useRef(new AnimationService()).current;
@@ -107,15 +70,12 @@ export default function App() {
 
   const isMobile = useIsMobile();
   const isPortrait = useIsMobile(0); // max-width:0 never matches → only aspect-ratio clause fires
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const hamburgerRef = useRef<HTMLButtonElement>(null);
 
   const handleResetRotation = useCallback(() => {
     animService.submit(
       new EasedAnimation(
         new RotationAnimation(rotationRef.current.clone(), INITIAL_ROTATION.clone(), (q) => {
-          rotationRef.current = q; // RAF loop picks this up on the next frame
+          rotationRef.current = q;
         }),
         easeInOutCubic,
       ),
@@ -136,6 +96,13 @@ export default function App() {
     }
     return DEFAULT_SETTINGS;
   });
+
+  const handleThemeChange = (themeName: string) => {
+    const newSettings: Settings = { ...settings, themeName };
+    setSettings(newSettings);
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
+  };
+
   // ── Solver panel ─────────────────────────────────────────────────────────
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [solverLog, setSolverLog] = useState<string[]>([]);
@@ -173,7 +140,6 @@ export default function App() {
     const actions: CubeAction[] = [];
 
     for (const { label, moves: stepMoves } of steps) {
-      // Capture label in closure for the effect.
       const capturedLabel = label;
       actions.push({ kind: 'effect', fn: () => setSolverLog((prev) => [...prev, capturedLabel]) });
 
@@ -205,7 +171,7 @@ export default function App() {
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
       if (e.ctrlKey || e.metaKey) {
-        if (isBusy) return; // undo / redo blocked while busy
+        if (isBusy) return;
         if (e.key === 'z' && !e.shiftKey) {
           e.preventDefault();
           handleUndo();
@@ -224,7 +190,6 @@ export default function App() {
         return;
       }
 
-      // Move keys are always accepted (enqueued if busy).
       const hotkey = HOTKEYS[e.key];
       if (hotkey) {
         e.preventDefault();
@@ -234,23 +199,6 @@ export default function App() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [move, handleUndo, handleRedo, cancel, isBusy]);
-
-  // Close hamburger menu when viewport grows past the mobile breakpoint.
-  useEffect(() => {
-    if (!isMobile) setIsMenuOpen(false);
-  }, [isMobile]);
-
-  // Dismiss hamburger menu when tapping outside the panel.
-  useEffect(() => {
-    if (!isMenuOpen) return;
-    const onPointerDown = (e: PointerEvent) => {
-      const outsideMenu = !menuRef.current?.contains(e.target as Node);
-      const outsideHamburger = !hamburgerRef.current?.contains(e.target as Node);
-      if (outsideMenu && outsideHamburger) setIsMenuOpen(false);
-    };
-    window.addEventListener('pointerdown', onPointerDown);
-    return () => window.removeEventListener('pointerdown', onPointerDown);
-  }, [isMenuOpen]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -264,393 +212,36 @@ export default function App() {
           overflow: 'hidden',
         }}
       >
-        <header style={{ ...headerStyle, position: 'relative' }}>
-          <h1
-            style={{
-              fontSize: '1.1rem',
-              fontWeight: 600,
-              letterSpacing: '0.05em',
-              flex: isMobile ? 0 : 1,
-            }}
-          >
-            Rubik&rsquo;s Cube
-          </h1>
-
-          {isMobile ? (
-            <>
-              <span
-                style={{
-                  fontSize: '0.8rem',
-                  color: '#8899aa',
-                  fontFamily: 'monospace',
-                  marginLeft: 'auto',
-                }}
-              >
-                {queue.historyIndex}/{queue.totalMoves}
-                {queue.pendingCount > 0 && ` +${queue.pendingCount}`}
-              </span>
-              <button
-                ref={hamburgerRef}
-                onClick={() => setIsMenuOpen((v) => !v)}
-                style={hamburgerBtnStyle}
-                aria-label="Menu"
-              >
-                {isMenuOpen ? '✕' : '☰'}
-              </button>
-              {isMenuOpen && (
-                <div ref={menuRef} style={menuPanelStyle} onClick={() => setIsMenuOpen(false)}>
-                  <div style={menuRowStyle}>
-                    <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>
-                      ↩ Undo
-                    </button>
-                    <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>
-                      Redo ↪
-                    </button>
-                  </div>
-                  <div style={menuRowStyle}>
-                    <button onClick={handleScramble} style={resetBtnStyle}>
-                      Scramble
-                    </button>
-                    <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>
-                      Solve
-                    </button>
-                    <button onClick={queue.resetCube} style={resetBtnStyle}>
-                      Reset
-                    </button>
-                    <button onClick={handleResetRotation} style={resetBtnStyle}>
-                      Reset rotation
-                    </button>
-                  </div>
-                  <div style={menuRowStyle}>
-                    {(['x', "x'", 'y', "y'", 'z', "z'"] as const).map((id) => (
-                      <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>
-                        {id}
-                      </button>
-                    ))}
-                  </div>
-                  <div style={menuRowStyle} onClick={(e) => e.stopPropagation()}>
-                    <select
-                      value={settings.themeName}
-                      onChange={(e) => {
-                        const newSettings: Settings = { ...settings, themeName: e.target.value };
-                        setSettings(newSettings);
-                        localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
-                      }}
-                      style={{ ...themeSelectStyle, flex: 1 }}
-                    >
-                      {THEMES.map(({ name }) => (
-                        <option key={name} value={name}>
-                          {name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div style={menuRowStyle}>
-                    <button onClick={() => setIsPanelOpen((v) => !v)} style={iconBtnStyle}>
-                      {isPanelOpen ? 'Solver ◀' : 'Solver ▶'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <span style={{ fontSize: '0.8rem', color: '#8899aa', fontFamily: 'monospace' }}>
-                {queue.historyIndex}/{queue.totalMoves}
-                {queue.pendingCount > 0 && ` +${queue.pendingCount}`}
-              </span>
-              <button onClick={handleUndo} disabled={!canUndo} style={iconBtnStyle}>
-                ↩ Undo
-              </button>
-              <button onClick={handleRedo} disabled={!canRedo} style={iconBtnStyle}>
-                Redo ↪
-              </button>
-              <button onClick={handleScramble} style={resetBtnStyle}>
-                Scramble
-              </button>
-              <button onClick={handleSolve} disabled={queue.isBusy} style={resetBtnStyle}>
-                Solve
-              </button>
-              <button onClick={queue.resetCube} style={resetBtnStyle}>
-                Reset
-              </button>
-              <button onClick={handleResetRotation} style={resetBtnStyle}>
-                Reset rotation
-              </button>
-              <span style={dividerStyle} />
-              {(['x', "x'", 'y', "y'", 'z', "z'"] as const).map((id) => (
-                <button key={id} onClick={() => move(id)} style={cubeTurnBtnStyle}>
-                  {id}
-                </button>
-              ))}
-              <span style={dividerStyle} />
-              <select
-                value={settings.themeName}
-                onChange={(e) => {
-                  const newSettings: Settings = { ...settings, themeName: e.target.value };
-                  setSettings(newSettings);
-                  localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
-                }}
-                style={themeSelectStyle}
-              >
-                {THEMES.map(({ name }) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-              <button onClick={() => setIsPanelOpen((v) => !v)} style={iconBtnStyle}>
-                {isPanelOpen ? 'Solver ◀' : 'Solver ▶'}
-              </button>
-            </>
-          )}
-        </header>
-
-        <div style={bodyStyle}>
-          {isMobile && isPortrait ? (
-            /* ── Portrait mobile: cube on top, button bar at bottom ── */
-            <main style={mobileMainStyle}>
-              <div style={{ flex: 1, minHeight: 0 }}>
-                <CubeRenderer
-                  model={queue.cube}
-                  rotationRef={rotationRef}
-                  animStateRef={queue.animStateRef}
-                />
-              </div>
-              <div style={mobileButtonBarStyle}>
-                {(['L', 'R', 'U', 'D', 'F', 'B'] as const).map((face) => (
-                  <MovePair key={face} cw={face} ccw={`${face}'` as MoveId} onMove={move} />
-                ))}
-              </div>
-            </main>
-          ) : isMobile ? (
-            /* ── Landscape mobile: side columns flanking the cube ── */
-            <main style={mobileLandscapeStyle}>
-              <div style={mobileSideColumnStyle}>
-                <MovePair cw="U" ccw="U'" onMove={move} />
-                <MovePair cw="L" ccw="L'" onMove={move} />
-                <MovePair cw="F" ccw="F'" onMove={move} />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <CubeRenderer
-                  model={queue.cube}
-                  rotationRef={rotationRef}
-                  animStateRef={queue.animStateRef}
-                />
-              </div>
-              <div style={mobileSideColumnStyle}>
-                <MovePair cw="D" ccw="D'" onMove={move} />
-                <MovePair cw="R" ccw="R'" onMove={move} />
-                <MovePair cw="B" ccw="B'" onMove={move} />
-              </div>
-            </main>
-          ) : (
-            <main style={mainGridStyle}>
-              {/* Row 1 */}
-              <div />
-              <div style={centreSlot}>
-                <MovePair cw="U" ccw="U'" onMove={move} />
-              </div>
-              <div />
-
-              {/* Row 2 */}
-              <div style={centreSlot}>
-                <MovePair cw="L" ccw="L'" onMove={move} />
-              </div>
-              <CubeRenderer
-                model={queue.cube}
-                rotationRef={rotationRef}
-                animStateRef={queue.animStateRef}
-              />
-              <div style={centreSlot}>
-                <MovePair cw="R" ccw="R'" onMove={move} />
-              </div>
-
-              {/* Row 3 – F bottom-left, D centre, B bottom-right */}
-              <div style={centreSlot}>
-                <MovePair cw="F" ccw="F'" onMove={move} />
-              </div>
-              <div style={centreSlot}>
-                <MovePair cw="D" ccw="D'" onMove={move} />
-              </div>
-              <div style={centreSlot}>
-                <MovePair cw="B" ccw="B'" onMove={move} />
-              </div>
-            </main>
-          )}
-
-          {isPanelOpen && <SolverPanel lines={solverLog} />}
-        </div>
+        <AppHeader
+          isMobile={isMobile}
+          historyIndex={queue.historyIndex}
+          totalMoves={queue.totalMoves}
+          pendingCount={queue.pendingCount}
+          isBusy={isBusy}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onScramble={handleScramble}
+          onSolve={handleSolve}
+          onResetCube={queue.resetCube}
+          onResetRotation={handleResetRotation}
+          onMove={move}
+          onThemeChange={handleThemeChange}
+          isPanelOpen={isPanelOpen}
+          onTogglePanel={() => setIsPanelOpen((v) => !v)}
+        />
+        <CubeLayout
+          isMobile={isMobile}
+          isPortrait={isPortrait}
+          cube={queue.cube}
+          rotationRef={rotationRef}
+          animStateRef={queue.animStateRef}
+          onMove={move}
+          isPanelOpen={isPanelOpen}
+          solverLog={solverLog}
+        />
       </div>
     </SettingsProvider>
   );
 }
-
-// --------------------------------------------------------------------------
-// Styles
-// --------------------------------------------------------------------------
-
-const headerStyle: React.CSSProperties = {
-  padding: '10px 24px',
-  background: '#16213e',
-  borderBottom: '1px solid #0f3460',
-  display: 'flex',
-  alignItems: 'center',
-  gap: 16,
-  userSelect: 'none',
-};
-
-const bodyStyle: React.CSSProperties = {
-  flex: 1,
-  display: 'flex',
-  overflow: 'hidden',
-};
-
-const mobileMainStyle: React.CSSProperties = {
-  flex: 1,
-  display: 'flex',
-  flexDirection: 'column',
-  overflow: 'hidden',
-};
-
-const mobileButtonBarStyle: React.CSSProperties = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  justifyContent: 'space-around',
-  alignItems: 'center',
-  padding: '8px',
-  paddingBottom: 'calc(8px + env(safe-area-inset-bottom))',
-  gap: 8,
-  flexShrink: 0,
-};
-
-const mobileLandscapeStyle: React.CSSProperties = {
-  flex: 1,
-  display: 'flex',
-  flexDirection: 'row',
-  overflow: 'hidden',
-  paddingLeft: 'env(safe-area-inset-left)',
-  paddingRight: 'env(safe-area-inset-right)',
-};
-
-const mobileSideColumnStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'space-evenly',
-  alignItems: 'center',
-  width: 64,
-  flexShrink: 0,
-  padding: '8px 0',
-};
-
-const mainGridStyle: React.CSSProperties = {
-  flex: 1,
-  display: 'grid',
-  gridTemplateColumns: '96px 1fr 96px',
-  gridTemplateRows: '96px 1fr 96px',
-  overflow: 'hidden',
-};
-
-const centreSlot: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-};
-
-const moveBtnBase: React.CSSProperties = {
-  width: 44,
-  padding: '4px 0',
-  fontSize: '0.8rem',
-  fontWeight: 700,
-  fontFamily: 'monospace',
-  background: 'transparent',
-  border: '1px solid',
-  borderRadius: 4,
-  cursor: 'pointer',
-  userSelect: 'none',
-};
-
-const iconBtnStyle: React.CSSProperties = {
-  padding: '6px 12px',
-  fontSize: '0.85rem',
-  fontWeight: 500,
-  background: 'transparent',
-  color: '#aac',
-  border: '1px solid #2a3a5a',
-  borderRadius: 4,
-  cursor: 'pointer',
-};
-
-const themeSelectStyle: React.CSSProperties = {
-  padding: '6px 28px 6px 12px',
-  fontSize: '0.85rem',
-  fontWeight: 500,
-  background: `#1a2a4a url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aac' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 8px center`,
-  color: '#aac',
-  border: '1px solid #2a3a5a',
-  borderRadius: 4,
-  cursor: 'pointer',
-  outline: 'none',
-  appearance: 'none',
-};
-
-const resetBtnStyle: React.CSSProperties = {
-  padding: '6px 14px',
-  fontSize: '0.85rem',
-  fontWeight: 500,
-  background: '#0f3460',
-  color: '#eee',
-  border: '1px solid #1a5276',
-  borderRadius: 4,
-  cursor: 'pointer',
-};
-
-const cubeTurnBtnStyle: React.CSSProperties = {
-  padding: '4px 8px',
-  fontSize: '0.8rem',
-  fontWeight: 700,
-  fontFamily: 'monospace',
-  background: 'transparent',
-  color: '#8899bb',
-  border: '1px solid #2a3a5a',
-  borderRadius: 4,
-  cursor: 'pointer',
-};
-
-const dividerStyle: React.CSSProperties = {
-  width: 1,
-  alignSelf: 'stretch',
-  background: '#1e2e4a',
-  margin: '0 4px',
-};
-
-const hamburgerBtnStyle: React.CSSProperties = {
-  padding: '6px 12px',
-  fontSize: '1.1rem',
-  background: 'transparent',
-  color: '#aac',
-  border: '1px solid #2a3a5a',
-  borderRadius: 4,
-  cursor: 'pointer',
-};
-
-const menuPanelStyle: React.CSSProperties = {
-  position: 'absolute',
-  top: '100%',
-  left: 0,
-  right: 0,
-  background: '#16213e',
-  borderBottom: '1px solid #0f3460',
-  padding: '12px 16px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 10,
-  zIndex: 100,
-};
-
-const menuRowStyle: React.CSSProperties = {
-  display: 'flex',
-  flexWrap: 'wrap',
-  gap: 8,
-  alignItems: 'center',
-};
