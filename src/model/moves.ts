@@ -117,18 +117,18 @@ export const MOVE_SPECS: Record<MoveId, MoveSpec> = {
   B: { axis: new THREE.Vector3(0, 0, 1), angle: H, axisIndex: 2, sliceValue: -1 },
   "B'": { axis: new THREE.Vector3(0, 0, 1), angle: -H, axisIndex: 2, sliceValue: -1 },
   // Whole-cube rotations (same axis/angle as the corresponding face move)
-  x: { axis: new THREE.Vector3(1, 0, 0), angle: H, axisIndex: 0, sliceValue: 1, allBlocks: true },
+  x: { axis: new THREE.Vector3(1, 0, 0), angle: -H, axisIndex: 0, sliceValue: 1, allBlocks: true },
   "x'": {
     axis: new THREE.Vector3(1, 0, 0),
-    angle: -H,
+    angle: H,
     axisIndex: 0,
     sliceValue: 1,
     allBlocks: true,
   },
-  y: { axis: new THREE.Vector3(0, 1, 0), angle: H, axisIndex: 1, sliceValue: 1, allBlocks: true },
+  y: { axis: new THREE.Vector3(0, 1, 0), angle: -H, axisIndex: 1, sliceValue: 1, allBlocks: true },
   "y'": {
     axis: new THREE.Vector3(0, 1, 0),
-    angle: -H,
+    angle: H,
     axisIndex: 1,
     sliceValue: 1,
     allBlocks: true,

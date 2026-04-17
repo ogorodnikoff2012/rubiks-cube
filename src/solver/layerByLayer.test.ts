@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { describe, it, expect } from 'vitest';
 import { createSolvedCube, SOLVED_COLORS } from '../model/cube';
 import { applyMoveToModel, FACE_MOVES, INVERSE_MOVE, MOVE_SPECS } from '../model/moves';
@@ -101,20 +102,9 @@ describe('single moves', () => {
   });
 
   // Whole-cube rotation direction checks via center stickers.
-  // x = same direction as R: U→F, F→D, D→B, B→U; L/R unchanged.
-  it('x rotates U→F, F→D, D→B, B→U', () => {
+  // x = same direction as R: U→B, B→D, D→F, F→U; L/R unchanged.
+  it('x rotates U→B, B→D, D→F, F→U', () => {
     const cube = applyMoveToModel(createSolvedCube(), 'x');
-    expect(centerColor(cube, 'F')).toBe(SOLVED_COLORS.U);
-    expect(centerColor(cube, 'D')).toBe(SOLVED_COLORS.F);
-    expect(centerColor(cube, 'B')).toBe(SOLVED_COLORS.D);
-    expect(centerColor(cube, 'U')).toBe(SOLVED_COLORS.B);
-    expect(centerColor(cube, 'R')).toBe(SOLVED_COLORS.R);
-    expect(centerColor(cube, 'L')).toBe(SOLVED_COLORS.L);
-  });
-
-  // x' = same direction as R': U→B, B→D, D→F, F→U; L/R unchanged.
-  it("x' rotates U→B, B→D, D→F, F→U", () => {
-    const cube = applyMoveToModel(createSolvedCube(), "x'");
     expect(centerColor(cube, 'B')).toBe(SOLVED_COLORS.U);
     expect(centerColor(cube, 'D')).toBe(SOLVED_COLORS.B);
     expect(centerColor(cube, 'F')).toBe(SOLVED_COLORS.D);
@@ -123,24 +113,35 @@ describe('single moves', () => {
     expect(centerColor(cube, 'L')).toBe(SOLVED_COLORS.L);
   });
 
-  // y = same direction as U (CW from top): F→R, R→B, B→L, L→F; U/D unchanged.
-  it('y rotates F→R, R→B, B→L, L→F', () => {
-    const cube = applyMoveToModel(createSolvedCube(), 'y');
-    expect(centerColor(cube, 'R')).toBe(SOLVED_COLORS.F);
-    expect(centerColor(cube, 'B')).toBe(SOLVED_COLORS.R);
-    expect(centerColor(cube, 'L')).toBe(SOLVED_COLORS.B);
-    expect(centerColor(cube, 'F')).toBe(SOLVED_COLORS.L);
-    expect(centerColor(cube, 'U')).toBe(SOLVED_COLORS.U);
-    expect(centerColor(cube, 'D')).toBe(SOLVED_COLORS.D);
+  // x' = same direction as R': U→F, F→D, D→B, B→U; L/R unchanged.
+  it("x' rotates U→F, F→D, D→B, B→U", () => {
+    const cube = applyMoveToModel(createSolvedCube(), "x'");
+    expect(centerColor(cube, 'F')).toBe(SOLVED_COLORS.U);
+    expect(centerColor(cube, 'D')).toBe(SOLVED_COLORS.F);
+    expect(centerColor(cube, 'B')).toBe(SOLVED_COLORS.D);
+    expect(centerColor(cube, 'U')).toBe(SOLVED_COLORS.B);
+    expect(centerColor(cube, 'R')).toBe(SOLVED_COLORS.R);
+    expect(centerColor(cube, 'L')).toBe(SOLVED_COLORS.L);
   });
 
-  // y' = same direction as U': F→L, L→B, B→R, R→F; U/D unchanged.
-  it("y' rotates F→L, L→B, B→R, R→F", () => {
-    const cube = applyMoveToModel(createSolvedCube(), "y'");
+  // y = same direction as U: F→L, L→B, B→R, R→F; U/D unchanged.
+  it('y rotates F→L, L→B, B→R, R→F', () => {
+    const cube = applyMoveToModel(createSolvedCube(), 'y');
     expect(centerColor(cube, 'L')).toBe(SOLVED_COLORS.F);
     expect(centerColor(cube, 'B')).toBe(SOLVED_COLORS.L);
     expect(centerColor(cube, 'R')).toBe(SOLVED_COLORS.B);
     expect(centerColor(cube, 'F')).toBe(SOLVED_COLORS.R);
+    expect(centerColor(cube, 'U')).toBe(SOLVED_COLORS.U);
+    expect(centerColor(cube, 'D')).toBe(SOLVED_COLORS.D);
+  });
+
+  // y' = same direction as U': F→R, R→B, B→L, L→F; U/D unchanged.
+  it("y' rotates F→R, R→B, B→L, L→F", () => {
+    const cube = applyMoveToModel(createSolvedCube(), "y'");
+    expect(centerColor(cube, 'R')).toBe(SOLVED_COLORS.F);
+    expect(centerColor(cube, 'B')).toBe(SOLVED_COLORS.R);
+    expect(centerColor(cube, 'L')).toBe(SOLVED_COLORS.B);
+    expect(centerColor(cube, 'F')).toBe(SOLVED_COLORS.L);
     expect(centerColor(cube, 'U')).toBe(SOLVED_COLORS.U);
     expect(centerColor(cube, 'D')).toBe(SOLVED_COLORS.D);
   });
@@ -166,6 +167,85 @@ describe('single moves', () => {
     expect(centerColor(cube, 'F')).toBe(SOLVED_COLORS.F);
     expect(centerColor(cube, 'B')).toBe(SOLVED_COLORS.B);
   });
+});
+
+describe('whole-cube rotations comply with face-move rotations', () => {
+  // applyMoveToModel maps cube.blocks[i] → result.blocks[i] in the same order.
+  // So we can compare block-by-block: the position of result.blocks[i] must equal
+  // the face-move quaternion applied to cube.blocks[i].position.
+  function positionsAfter(cube: CubeModel, move: MoveId): string[] {
+    return applyMoveToModel(cube, move).blocks.map((b) => b.position.join(','));
+  }
+
+  function positionsUnderQuaternion(cube: CubeModel, faceMoveId: MoveId): string[] {
+    const { axis, angle } = MOVE_SPECS[faceMoveId];
+    const q = new THREE.Quaternion().setFromAxisAngle(axis, angle);
+    return cube.blocks.map((b) => {
+      const v = new THREE.Vector3(...b.position).applyQuaternion(q);
+      return [Math.round(v.x), Math.round(v.y), Math.round(v.z)].join(',');
+    });
+  }
+
+  const cases: [MoveId, MoveId][] = [
+    ['x', 'R'],
+    ["x'", "R'"],
+    ['y', 'U'],
+    ["y'", "U'"],
+    ['z', 'F'],
+    ["z'", "F'"],
+  ];
+
+  for (const [wholeCube, faceMove] of cases) {
+    it(`${wholeCube} moves every block the same way as ${faceMove}`, () => {
+      const cube = createSolvedCube();
+      expect(positionsAfter(cube, wholeCube)).toEqual(positionsUnderQuaternion(cube, faceMove));
+    });
+  }
+});
+
+function applySeq(cube: CubeModel, moves: MoveId[]): CubeModel {
+  for (const m of moves) cube = applyMoveToModel(cube, m);
+  return cube;
+}
+
+function cubesEqual(a: CubeModel, b: CubeModel): boolean {
+  const toMap = (c: CubeModel) =>
+    new Map(c.blocks.map((bl) => [bl.position.join(','), JSON.stringify(bl.faceColors)]));
+  const ma = toMap(a);
+  const mb = toMap(b);
+  if (ma.size !== mb.size) return false;
+  for (const [pos, colors] of ma) {
+    if (mb.get(pos) !== colors) return false;
+  }
+  return true;
+}
+
+describe('conjugation identities', () => {
+  const cube = scramble(createSolvedCube(), 13, 20);
+
+  const cases: Array<[MoveId[], MoveId]> = [
+    // x conjugation: xAx' = x'(A) where x'(U)=F, x'(F)=D, x'(D)=B, x'(B)=U
+    [['x', 'U', "x'"], 'F'],
+    [['x', 'F', "x'"], 'D'],
+    [['x', 'D', "x'"], 'B'],
+    [['x', 'B', "x'"], 'U'],
+    // y conjugation: yAy' = y'(A) where y'(F)=R, y'(R)=B, y'(B)=L, y'(L)=F
+    [['y', 'F', "y'"], 'R'],
+    [['y', 'R', "y'"], 'B'],
+    [['y', 'B', "y'"], 'L'],
+    [['y', 'L', "y'"], 'F'],
+    // z conjugation: zAz' = z'(A) where z'(R)=U, z'(U)=L, z'(L)=D, z'(D)=R
+    [['z', 'R', "z'"], 'U'],
+    [['z', 'U', "z'"], 'L'],
+    [['z', 'L', "z'"], 'D'],
+    [['z', 'D', "z'"], 'R'],
+  ];
+
+  for (const [seq, equiv] of cases) {
+    it(`${seq.join(' ')} = ${equiv}`, () => {
+      expect(cubesEqual(applySeq(cube, seq), applySeq(cube, [equiv]))).toBe(true);
+    });
+  }
 });
 
 describe('solveLayerByLayer', () => {
