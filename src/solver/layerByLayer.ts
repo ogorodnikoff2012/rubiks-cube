@@ -61,8 +61,8 @@ function step0Orientation(cube: CubeModel): MoveId[] {
   const whiteToU: Partial<Record<FaceKey, MoveId[]>> = {
     U: [],
     D: ['x', 'x'],
-    F: ["x'"],
-    B: ['x'],
+    F: ['x'],
+    B: ["x'"],
     R: ['z'],
     L: ["z'"],
   };
@@ -79,8 +79,8 @@ function step0Orientation(cube: CubeModel): MoveId[] {
   const greenToF: Partial<Record<FaceKey, MoveId[]>> = {
     F: [],
     B: ['y', 'y'],
-    R: ["y'"],
-    L: ['y'],
+    R: ['y'],
+    L: ["y'"],
   };
   const greenFace = findCenter(model, SOLVED_COLORS.F)[0];
   moves.push(...(greenToF[greenFace] ?? []));
@@ -149,7 +149,7 @@ function step1WhiteCross(cube: CubeModel): MoveId[] {
       addMove(...repeatMove('U', shift));
     }
 
-    addMove("y'");
+    addMove('y');
   }
 
   return optimizeMoves(result);
@@ -219,7 +219,7 @@ function step2WhiteCorners(cube: CubeModel): MoveId[] {
       throw new Error(`Unexpected location: [${loc[0]} ${loc[1]} ${loc[2]}]`);
     }
 
-    addMove("y'");
+    addMove('y');
   }
 
   return optimizeMoves(result);
@@ -284,11 +284,11 @@ function step3MiddleLayer(cube: CubeModel): MoveId[] {
         return s1;
       })(frontShift, rightShift);
 
-      addMove(...repeatMove("y'", shift));
-      addMove("R'", 'D', 'R', 'D', 'F', "D'", "F'");
       addMove(...repeatMove('y', shift));
+      addMove("R'", 'D', 'R', 'D', 'F', "D'", "F'");
+      addMove(...repeatMove("y'", shift));
     }
-    addMove("y'");
+    addMove('y');
   }
 
   return optimizeMoves(result);
@@ -384,9 +384,9 @@ function step5OrderedYellowCross(cube: CubeModel): MoveId[] {
     if (shift >= 0) {
       return optimizeMoves([
         ...repeatMove('U', shift),
-        ...repeatMove("y'", i),
+        ...repeatMove('y', i),
         ...algorithm,
-        ...repeatMove("y'", 4 - i),
+        ...repeatMove('y', 4 - i),
       ]);
     }
   }
@@ -475,9 +475,9 @@ function step6YellowCornersPositioning(cube: CubeModel): MoveId[] {
 
     if (correctCount === 1) {
       const shift = corners.indexOf(true);
-      addMove(...repeatMove("y'", shift));
-      addMove(...algoA);
       addMove(...repeatMove('y', shift));
+      addMove(...algoA);
+      addMove(...repeatMove("y'", shift));
       continue;
     }
 
