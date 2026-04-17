@@ -46,12 +46,19 @@ function isSolved(cube: CubeModel): boolean {
 }
 
 const FACE_POSITIONS: Record<FaceKey, [number, number, number]> = {
-  R: [1, 0, 0], L: [-1, 0, 0], U: [0, 1, 0], D: [0, -1, 0], F: [0, 0, 1], B: [0, 0, -1],
+  R: [1, 0, 0],
+  L: [-1, 0, 0],
+  U: [0, 1, 0],
+  D: [0, -1, 0],
+  F: [0, 0, 1],
+  B: [0, 0, -1],
 };
 
 function centerColor(cube: CubeModel, face: FaceKey): string {
   const [x, y, z] = FACE_POSITIONS[face];
-  const block = cube.blocks.find(b => b.position[0] === x && b.position[1] === y && b.position[2] === z);
+  const block = cube.blocks.find(
+    (b) => b.position[0] === x && b.position[1] === y && b.position[2] === z,
+  );
   return block?.faceColors[face] ?? '';
 }
 
@@ -84,7 +91,10 @@ describe('single moves', () => {
       for (let i = 0; i < before.blocks.length; i++) {
         const b = before.blocks[i];
         if (b.position[axisIndex] !== sliceValue) {
-          expect(after.blocks[i].faceColors, `${move}: unaffected block at ${b.position} changed`).toEqual(b.faceColors);
+          expect(
+            after.blocks[i].faceColors,
+            `${move}: unaffected block at ${b.position} changed`,
+          ).toEqual(b.faceColors);
         }
       }
     }
